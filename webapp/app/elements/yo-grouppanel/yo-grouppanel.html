@@ -1,0 +1,203 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-header-panel/core-header-panel.html">
+<link rel="import" href="../../../components/core-toolbar/core-toolbar.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/core-animated-pages/core-animated-pages.html">
+<link rel="import" href="../../../components/core-animated-pages/transitions/slide-from-right.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../../../components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../../../components/paper-tabs/paper-tabs.html">
+
+<polymer-element name="yo-grouppanel" attributes="group selectedTags userId">
+	<template>
+		<link rel="stylesheet" href="yo-grouppanel.css">
+
+		<core-header-panel fit fixed>
+		    <core-toolbar id="drawerTitle" class="tall" mode="standard" layout horizontal center>
+	    		<div layout vertical>
+	    			<h3 style="margin-bottom: 5px;">{{group.name}}</h3>
+	    			<p style="margin-top: 5px; font-size: 16px;"
+	    				hidden?="{{group.id == 'DRAFT' || group.id == 'LIKES' || group.id == 'LABLED'}}">共{{group.counts}}篇笔记</p>
+	    		</div>
+		    </core-toolbar>
+		    <div layout vertical hidden?="{{group.id == 'LIKES' || group.id == 'LABLED' || group.id == 'DRAFT'}}">
+				<paper-tabs selected="{{groupTabSelection}}" style="margin-bottom: 5px;">
+					<paper-tab>显示标签</paper-tab>
+					<paper-tab>群组成员</paper-tab>
+				</paper-tabs>
+				<core-animated-pages selected="{{groupTabSelection}}" transitions="slide-from-right">
+					<section>
+				   		<div layout horizontal wrap style="padding: 0px 8px;">
+					   		<template repeat="{{tag in selectedTags}}">
+					   			<paper-shadow class="tagItem" z="1">
+					   				<paper-checkbox for label="{{tag.name}}" checked="{{tag.select}}"
+					   					on-change="{{tagSelectChange}}"></paper-checkbox>
+					   			</paper-shadow>
+					   		</template>
+				   		</div>
+					</section>
+					<section>
+						<div layout vertical>
+				   			<paper-shadow class="searchItem" z="1" horizontal layout center hidden?="{{userId != group.creater}}">
+				   				<input id="searchMemberInput" is="core-input" placeholder="添加群成员"
+				   					value="{{searchText}}" disabled?="{{adding}}" flex>
+				   				<paper-spinner active?="{{searching}}"></paper-spinner>
+				   			</paper-shadow>
+				   			<paper-shadow class="searchResultPanel" z="1" horizontal layout center hidden?="{{!searchedUser}}">
+								<div layout horizontal center flex>
+									<div class="avatar" style="background-image: url({{searchedUser.header}})"></div>
+									<div layout vertical flex>
+										<div style="margin-bottom: 4px;">{{searchedUser.name}}</div>
+										<div>{{searchedUser.description}}</div>
+									</div>
+									<paper-fab mini icon="add" class="blue" title="添加" on-click="{{addMember}}" hidden?="{{adding}}"></paper-fab>
+									<paper-spinner active?="{{adding}}" hidden?="{{!adding}}"></paper-spinner>
+								</div>
+				   			</paper-shadow>
+					   		<template repeat="{{member in group.members}}">
+								<div layout horizontal center style="padding: 10px 15px;">
+									<div class="avatar" style="background-image: url({{member.header}})"></div>
+									<div layout vertical flex>
+										<div style="margin-bottom: 4px;">{{member.name}}</div>
+										<div style="font-size: 14px; color: gray;">{{member.description}}</div>
+									</div>
+									<core-icon-button icon="close" title="移除用户" on-click="{{removeMember}}"
+										hidden?="{{userId != group.creater || member.id == group.creater}}"></core-icon-button>
+								</div>
+					   		</template>
+						</div>
+					</section>
+				</core-animated-pages>
+		    </div>
+	    </core-header-panel>
+	    <core-ajax id="ajax" handleAs="json"></core-ajax>
+	    <yo-groupdialog id="confirmDialog" subject="{{dialogSubject}}" on-action-confirm="{{onActionConfirm}}"></yo-groupdialog>
+	</template>
+	<script>
+	(function() {
+	      var makeRequest = function (scope, callback, url, method, params, body, contentType) {
+	        var responseCallback = function (event) {
+	          scope.$.ajax.removeEventListener('core-response', responseCallback);
+	          scope.$.ajax.removeEventListener('core-error', errorCallback);
+
+	          if (event.detail.response.success) {
+	            callback(scope, event.detail.response.data, event.detail.response.ext);
+	          } else {
+	            scope.fire('user-error', event.detail.response.toString());
+	            callback(scope);
+	          }
+	        };
+	        var errorCallback = function (event) {
+	          scope.$.ajax.removeEventListener('core-response', responseCallback);
+	          scope.$.ajax.removeEventListener('core-error', errorCallback);
+
+	          scope.fire('user-error', event.detail.response.toString());
+	          callback(scope);
+	        };
+
+	        scope.$.ajax.url = url;
+	        if (contentType) {
+	          scope.$.ajax.contentType = contentType;
+	        } else {
+	          scope.$.ajax.contentType = 'application/x-www-form-urlencoded';
+	        }
+	        
+	        scope.$.ajax.method = method;
+	        scope.$.ajax.params = params;
+	        scope.$.ajax.body = body ? JSON.stringify(body) : undefined;
+	        scope.$.ajax.addEventListener('core-response', responseCallback);
+	        scope.$.ajax.addEventListener('core-error', errorCallback);
+	        scope.$.ajax.go();
+	      };
+
+		Polymer({
+			ready: function () {
+				this.selectedTags = [];
+				this.groupTabSelection = 0;
+				this.searching = false;
+			},
+			groupChanged: function (oldValue, newValue) {
+				if (newValue) {
+					if (!oldValue || (newValue.id != oldValue.id)) {
+						this.selectedTags.length = 0;
+						if (newValue.msgTags) {
+							for (var index in newValue.msgTags) {
+								this.selectedTags.push({
+									name: newValue.msgTags[index],
+									select: true
+								});
+							}
+						}
+
+						makeRequest(this, function (scope, members) {
+							scope.group.members = members;
+						}, './api/group/' + newValue.id + '/members', 'GET', {
+							userid: this.userId
+						});
+					} else if (oldValue && oldValue.msgTags != newValue.msgTags) {
+						for (var index in newValue.msgTags) {
+							var item = newValue.msgTags[index];
+							if (!oldValue.msgTags || oldValue.msgTags.indexOf(item) < 0) {
+								this.selectedTags.push({
+									name: item,
+									select: true
+								});
+							}
+						}
+					}
+				}
+			},
+			tagSelectChange: function (oldValue, newValue) {
+				this.fire('tag-change');
+			},
+			searchTextChanged: function (oldValue, newValue) {
+				if (newValue && oldValue != newValue) {
+					if (this.searchHandler) {
+					  this.cancelAsync(this.searchHandler);
+					  this.searchHandler = undefined;
+					}
+
+					this.searchHandler = this.async(function() {
+					  var encoded = encodeURIComponent(newValue);
+					  makeRequest(this, function (scope, user) {
+					  	scope.searching = false;
+					    scope.searchedUser = user;
+					  }, './api/user/search', 'GET', {
+					    user: encoded
+					  });
+					}, null, 1000);
+					this.searching = true;
+				}
+			},
+			addMember: function (event, detail, sender) {
+				this.adding = true;
+				makeRequest(this, function (scope, result) {
+					scope.adding = false;
+					scope.searchedUser = undefined;
+					scope.searchText = undefined;
+					scope.group.members = result.members;
+				}, './api/group/' + this.group.id + '/addmember', 'POST', undefined, {
+					userid: this.userId,
+					memberId: this.searchedUser.id
+				}, 'application/json');
+			},
+			removeMember: function (event, detail, sender) {
+				this.targetMember = event.target.templateInstance.model.member;
+				this.dialogSubject = '从群组中移除 "' + this.targetMember.name + '" ?';
+          		this.$.confirmDialog.showDialog(false);
+			},
+			onActionConfirm: function (event, detail, sender) {
+				makeRequest(this, function (scope, updatedGroup) {
+					scope.targetMember = undefined;
+					scope.group.members = updatedGroup.members;
+					scope.$.confirmDialog.closeDialog();
+				}, './api/group/' + this.group.id + '/removemember', 'POST', undefined, {
+					userid: this.userId,
+					memberId: this.targetMember.id
+				}, 'application/json');
+			}
+		});
+	})();
+	</script>
+</polymer-element>

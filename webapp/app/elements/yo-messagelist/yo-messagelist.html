@@ -1,0 +1,332 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-ajax/core-ajax.html">
+<link rel="import" href="../../../components/core-header-panel/core-header-panel.html">
+<link rel="import" href="../../../components/core-toolbar/core-toolbar.html">
+<link rel="import" href="../../../components/core-field/core-field.html">
+<link rel="import" href="../../../components/core-animation/core-animation.html">
+<link rel="import" href="../../../components/core-icon-button/core-icon-button.html">
+<link rel="import" href="../../../components/core-scroll-threshold/core-scroll-threshold.html">
+<link rel="import" href="../../../components/paper-fab/paper-fab.html">
+<link rel="import" href="../../../components/paper-input/paper-autogrow-textarea.html">
+<link rel="import" href="../../../components/paper-input/paper-input-decorator.html">
+<link rel="import" href="../../../components/paper-input/paper-input.html">
+<link rel="import" href="../../../components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-dropdown/paper-dropdown.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../yo-groupdialog/yo-groupdialog.html">
+<link rel="import" href="yo-messageItem.html">
+<link rel="import" href="../yo-http/yo-http.html">
+
+<polymer-element name="yo-messagelist" attributes="group userId selectedTags">
+  <template>
+    <link rel="stylesheet" href="yo-messagelist.css">
+
+    <div layout vertical style="position: relative; height: 100%;" fit hero-id="group-{{group.id}}" hero>
+      <core-scroll-threshold id="threshold" scrollTarget="{{$.headerPanel.scroller}}" lowerThreshold="25" on-lower-trigger="{{loadMore}}" fit></core-scroll-threshold>
+      <core-header-panel id="headerPanel" fit fixed>
+        <core-toolbar mode="standard">
+          <core-icon-button icon="arrow-back" on-tap="{{onback}}"></core-icon-button>
+          <div flex></div>
+          <paper-input label="笔记查询" value="{{searchText}}" style="font-size: 16px;" hidden?="{{!searchMode}}"></paper-input>
+          <core-icon-button icon="close" on-tap="{{exitSearchMode}}" title="关闭查询模式" hidden?="{{!searchMode}}"></core-icon-button>
+          <core-icon-button icon="search" on-tap="{{enterSearchMode}}" title="进入查询模式" hidden?="{{searchMode || group.id == 'DRAFT'}}"></core-icon-button>
+          <core-icon-button icon="more-vert" on-tap="{{menuClicked}}"
+            hidden?="{{specialGroup}}">
+            <paper-dropdown id="groupMenu" class="no-padding" halign="right">
+              <div class="menu">
+                <paper-item on-click="{{showEditDialog}}"><core-icon icon="input"></core-icon>编辑群组</paper-item>
+                <paper-item on-click="{{showConfirmDialog}}"><core-icon icon="close"></core-icon>删除群组</paper-item>
+              </div>
+            </paper-dropdown>
+          </core-icon-button>
+        </core-toolbar>
+
+        <div id="scroller" layout vertical>
+          <div hidden?="{{loading || messages.length > 0}}" style="color: gray; font-size: 16px;" self-center>
+          {{searchMode ? '没有搜索到内容包含 "' + searchText + '" 的笔记' : emptyMessage}}</div>
+          <template repeat="{{msg, index in messages}}">
+            <div class="messageContainer" layout horizontal>
+              <div layout vertical center style="margin-right: 15px; max-width: 50px;">
+                <div class="middle avatar" style="background-image: url({{msg.senderHeader}})"></div>
+                <div class="message-sender">{{msg.senderName}}</div>
+              </div>
+              <paper-shadow z="1" flex>
+                <yo-messageItem message="{{msg}}" userId="{{userId}}" itemIndex="{{index}}" draftItem="{{group.id == 'DRAFT'}}" selectIndex="{{selectIndex}}" selectedTags="{{selectedTags}}"></yo-messageItem>
+              </paper-shadow>
+            </div>
+          </template>
+          <paper-spinner active?="{{loading}}" style="margin: 20px;" self-center></paper-spinner>
+        </div>
+      </core-header-panel>
+      <paper-fab id="sendButton" icon="create" class="blue" title="确认"
+            on-tap="{{openEditor}}" hidden?="{{specialGroup}}"></paper-fab>
+    </div>
+
+    <yo-groupdialog id="editDialog" subject="{{dialogSubject}}" on-action-confirm="{{onActionConfirm}}"></yo-groupdialog>
+
+    <yo-http id="yoHttp"></yo-http>
+  </template>
+  <script>
+    (function () {
+      var scrollToTop = function (targetElement) {
+        var animation = new CoreAnimation();
+        animation.duration = 300;
+        animation.target = targetElement;
+        animation.fill = 'forwards';
+        var total = targetElement.scrollTop;
+        animation.customEffect = function(timeFraction, target, animation) {
+          target.scrollTop = (1 - timeFraction) * total;
+        };
+        animation.play();
+      };
+
+      var encodeQueyTags = function (selectedTags) {
+        if (!selectedTags) return;
+
+        var tags = [];
+        selectedTags.forEach(function (item) {
+          if (item.select) {
+            tags.push(item.name);
+          }
+        });
+
+        if (tags.length > 0) return encodeURIComponent(tags.join(','));
+      };
+
+      var searchMessages = function (scope, searchText) {
+        scope.loading = true;
+        if (scope.searchHandler) {
+          scope.cancelAsync(scope.searchHandler);
+          scope.searchHandler = undefined;
+        }
+
+        scope.searchHandler = scope.async(function() {
+          var encoded = encodeURIComponent(searchText);
+          var request = {
+            method: 'GET',
+            params: {
+              q: encoded
+            }
+          };
+
+          if (scope.group.id == 'LIKES') {
+            request.url = './api/user/' + scope.userId + '/likes';
+          } else if (scope.group.id == 'LABLED') {
+            request.url = './api/user/' + scope.userId + '/labels';
+          } else {
+            request.url = './api/group/' + scope.group.id + '/message/contentsearch';
+            request.params.userid = scope.userId;
+          }
+
+          scope.$.yoHttp.makeRequest(scope, function (scope, messages) {
+            if (messages) {
+              scope.messages = messages;
+
+              if (messages.length == 10) {
+                scope.fire('user-error', '查询结果过多，按时间顺序显示前10个');
+              }
+            } else {
+              scope.fire('user-error', '没有找到内容包含 "' + searchText + '" 的笔记');
+            }
+            scope.loading = false;
+          }, request.url, request.method, request.params);
+        }, null, 1000);
+      };
+
+      var loadMessages = function (scope) {
+        scope.loading = true;
+
+        scope.async(function () {
+          var request = {
+            method: 'GET',
+            params: {
+              last: scope.messages.length > 0 ? scope.messages[scope.messages.length - 1].timestamp : undefined
+            }
+          };
+          if (scope.group.id == 'LIKES') {
+            request.url = './api/user/' + scope.userId + '/likes';
+          } else if (scope.group.id == 'LABLED') {
+            request.url = './api/user/' + scope.userId + '/labels';
+          } else if (scope.group.id == 'DRAFT') {
+            request.url = './api/user/' + scope.userId + '/draft';
+          } else {
+            request.url = './api/group/' + scope.group.id + '/message';
+            request.params.userid = scope.userId;
+            request.params.tags = encodeQueyTags(scope.selectedTags);
+          }
+
+          scope.$.yoHttp.makeRequest(scope, function (scope, messages) {
+            if (messages) {
+              if (messages.length > 0) {
+                messages.forEach(function (item) {
+                  scope.messages.push(item);
+                });
+              } else {
+                scope.allLoaded = true;
+                scope.fire('user-error', '已加载全部历史记录');
+              }
+            }
+            scope.loading = false;
+            scope.$.threshold.clearLower();
+          }, request.url, request.method, request.params);
+        }, null, 300);
+      };
+
+      var findMessageInex = function (messages, target) {
+        for (var index in messages) {
+          if (messages[index].id == target.id) return index;
+        }
+      };
+
+      Polymer({
+        ready: function () {
+          this.selectIndex = -1;
+          this.loading = false;
+          this.allLoaded = false;
+          this.searchMode = false;
+        },
+        onback: function (event, detail, sender) {
+          this.fire('back');
+        },
+        groupChanged: function (oldValue, newValue) {
+          if (!oldValue || oldValue.id != newValue.id) {
+            this.specialGroup = (this.group.id == 'LIKES' || this.group.id == 'LABLED' || this.group.id == 'DRAFT');
+            this.messages = [];
+            loadMessages(this);
+
+            if (this.group.id == 'LIKES') {
+              this.emptyMessage = '你还没有赞过任何笔记哦，快去赞一下小伙伴的优秀笔记吧';
+            } else if (this.group.id == 'LABLED') {
+              this.emptyMessage = '你还没有标记过任何笔记哦，快去标记一下小伙伴的优秀笔记吧';
+            } else if (this.group.id == 'DRAFT') {
+              this.emptyMessage = '没有草稿';
+            } else {
+              this.emptyMessage = '这个群组还没有笔记哦，记些什么吧';
+            }
+          }
+        },
+        openEditor: function (event, detail, sender) {
+          var editorContainer = document.getElementById('editor-container');
+          editorContainer.showEditor({
+            groupId: this.group.id,
+            userId: this.userId
+          });
+        },
+        onSendFinished: function (drift, messages, updatedGroup) {
+          if (drift.id && this.specialGroup) {
+            var index = findMessageInex(this.messages, drift);
+            if (index >= 0) {
+              this.messages.splice(index, 1);
+            }
+          } else if (!this.specialGroup) {
+            if (messages) {
+              messages.reverse();
+              for (var index in messages) {
+                this.messages.unshift(messages[index]);
+              }
+
+              if (!this.group.recents) {
+                this.group.recents = [];
+              }
+
+              if (messages.length == 1) {
+                this.group.recents.unshift(messages[0]);
+              } else if (messages.length >= 2) {
+                this.group.recents.unshift(messages[1]);
+                this.group.recents.unshift(messages[0]);
+              }
+
+              if (this.group.recents.length > 2) {
+                this.group.recents.splice(2);
+              }
+            }
+            scrollToTop(this.$.headerPanel.scroller);
+
+            if (updatedGroup) {
+              updatedGroup.members = this.group.members;
+              this.group = updatedGroup;
+            }
+
+            this.newMsgTags = [];
+            if (updatedGroup.msgTags) {
+              for (var index in updatedGroup.msgTags) {
+                this.newMsgTags.push({
+                  name: updatedGroup.msgTags[index],
+                  select: false
+                })
+              }
+            }
+          }
+        },
+        loadMore: function (event, detail, sender) {
+          if (this.allLoaded) return;
+
+          loadMessages(this);
+        },
+        searchTextChanged: function (oldValue, newValue) {
+          if (newValue && oldValue != newValue) {
+            searchMessages(this, newValue);
+          }
+        },
+        enterSearchMode: function (event, detail, sender) {
+          this.restoreMessage = this.messages;
+          this.messages = [];
+          this.searchMode = true;
+        },
+        exitSearchMode: function (event, detail, sender) {
+          this.messages = this.restoreMessage;
+          this.restoreMessage = undefined;
+          this.searchMode = false;
+        },
+        menuClicked: function (event, detail, sender) {
+          this.$.groupMenu.toggle();
+        },
+        showEditDialog: function (event, detail, sender) {
+          this.dialogSubject = '编辑群组';
+          this.$.editDialog.showDialog(true, this.group.name);
+        },
+        showConfirmDialog: function (event, detail, sender) {
+          this.dialogSubject = '确定删除群组 "' + this.group.name + '" ?';
+          this.$.editDialog.showDialog(false);
+        },
+        onActionConfirm: function (event, detail, sender) {
+          if (detail.editor) {
+            this.$.yoHttp.makeRequest(this, function (scope, group) {
+              if (group) {
+                scope.fire('group-updated', group);
+              }
+              scope.$.editDialog.closeDialog();
+            }, './api/group/' + this.group.id, 'POST', undefined, {
+              userid: this.userId,
+              name: detail.name
+            }, 'application/json');
+          } else {
+            this.$.yoHttp.makeRequest(this, function (scope, group) {
+              if (group) {
+                scope.fire('group-deleted', group);
+              }
+              scope.$.editDialog.closeDialog();
+            }, './api/group/' + this.group.id, 'DELETE', {
+              userid: this.userId
+            });
+          }
+        },
+        refreshList: function () {
+          this.messages = [];
+          loadMessages(this);
+        },
+        onMessageDeleted: function (event, detail, sender) {
+          var index = findMessageInex(this.messages, detail);
+          if (index >= 0) {
+            this.messages.splice(index, 1);
+            this.fire('draft-deleted', index);
+          }
+        },
+        getMessages: function () {
+          return this.messages;
+        }
+      });
+    })();
+  </script>
+</polymer-element>

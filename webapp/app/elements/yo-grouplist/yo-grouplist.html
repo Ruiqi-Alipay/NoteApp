@@ -1,0 +1,88 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/core-ajax/core-ajax.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../../../components/paper-ripple/paper-ripple.html">
+<link rel="import" href="../yo-groupdialog/yo-groupdialog.html">
+
+<polymer-element name="yo-grouplist" attributes="user">
+	<template>
+		<link rel="stylesheet" href="yo-grouplist.css">
+
+		<div id="groupParent" horizontal wrap layout fit>
+		    <paper-shadow class="card addCard" z="1" on-tap="{{showGroupDialog}}">
+			    <div vertical layout center center-justified fit>
+			    	<core-icon class="addCardIcon" icon="add-circle-outline"></core-icon>
+			    	创建群笔记
+			    </div>
+			    <paper-ripple fit></paper-ripple>
+		    </paper-shadow>
+			<template repeat="{{group in user.groups}}">
+			    <paper-shadow class="card" z="1" on-tap="{{selectGroup}}"
+			    	hero-id="group-{{group.id}}" hero?="{{selectedGroup.id == group.id}}">
+				    <div layout vertical cross-fade fit>
+						<div class="title" horizontal layout center>
+							{{group.name}}
+						</div>
+						<div class="content" layout vertical flex>
+							<div layout vertical flex style="border-bottom: 1px dotted #ddd;">
+								<p flex class="testOverflow">{{group.recents[0].text}}</p>
+								<div class="cardDate" self-end>{{group.recents[0].date}}</div>
+							</div>
+							<div layout vertical flex>
+								<p flex class="testOverflow">{{group.recents[1].text}}</p>
+								<div class="cardDate" self-end>{{group.recents[1].date}}</div>
+							</div>
+						</div>
+				    </div>
+				    <paper-ripple fit></paper-ripple>
+			    </paper-shadow>
+			</template>
+		</div>
+
+		<yo-groupdialog id="dialog" subject="创建新群组" on-action-confirm="{{createGroup}}"></yo-groupdialog>
+
+	    <core-ajax id="request" url="{{request.url}}" method="{{request.method}}" handleAs="json" contentType="application/json"
+		    body="{{request.body}}" on-core-response="{{handleResponse}}" on-core-error="{{handleError}}"></core-ajax>
+	</template>
+	<script>
+	(function() {
+		Polymer({
+			selectGroup: function (event, detail, sender) {
+				this.selectedGroup = event.target.templateInstance.model.group;
+				this.fire('select-group', this.selectedGroup);
+			},
+			showGroupDialog: function (event, detail, sender) {
+				this.$.dialog.showDialog(true);
+			},
+			cancelDialog: function (event, detail, sender) {
+				this.$.dialog.closeDialog();
+			},
+			createGroup: function (event, detail, sender) {
+				this.request = {
+					url: './api/group',
+					method: 'POST',
+					body: JSON.stringify({
+						userid: this.user.id,
+						name: detail.name
+					})
+				};
+
+				this.$.request.go();
+			},
+			handleResponse: function (event, detail, sender) {
+				this.$.dialog.closeDialog();
+				if (detail.response.success) {
+					this.user.groups.push(detail.response.data);
+				} else {
+					this.fire('user-error', detail.response.data);
+				}
+			},
+			handleError: function (event, detail, sender) {
+				this.$.dialog.closeDialog();
+				this.fire('user-error', detail.toString());
+			}
+		});
+	})();
+	</script>
+</polymer-element>

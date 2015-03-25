@@ -1,0 +1,196 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-drawer-panel/core-drawer-panel.html">
+<link rel="import" href="../../../components/core-animated-pages/core-animated-pages.html">
+<link rel="import" href="../../../components/core-animated-pages/transitions/cross-fade.html">
+<link rel="import" href="../../../components/core-ajax/core-ajax.html">
+<link rel="import" href="../../../components/paper-toast/paper-toast.html">
+<link rel="import" href="../yo-navpanel/yo-navpanel.html">
+<link rel="import" href="../yo-grouppanel/yo-grouppanel.html">
+<link rel="import" href="../yo-grouplist/yo-grouplist.html">
+<link rel="import" href="../yo-messagelist/yo-messagelist.html">
+<link rel="import" href="../yo-http/yo-http.html">
+
+<polymer-element name="yo-app">
+	<template>
+		<link rel="stylesheet" href="yo-app.css">
+
+		<core-drawer-panel id="mainPage" cross-fade hidden>
+
+			<core-animated-pages drawer selected="{{curPage}}" transitions="cross-fade-all" flex>
+				<yo-navpanel user="{{user}}" on-select-group="{{onSelectGroup}}"
+					on-nav-likesclicked="{{onNavLikesClicked}}" on-nav-labledclicked="{{onNavLabledClicked}}"
+					on-nav-driftclicked="{{onNavDraftClicked}}"></yo-navpanel>
+				<yo-grouppanel group="{{selectedGroup}}" selectedTags="{{selectedTags}}"
+					userId="{{user.id}}" on-tag-change="{{onTagFilterChange}}"></yo-grouppanel>
+			</core-animated-pages>
+
+		    <core-animated-pages main id="pages" selected="{{curPage}}" transitions="cross-fade-all hero-transition" flex>
+
+				<yo-grouplist user="{{user}}" on-select-group="{{onSelectGroup}}" on-user-error="{{handleError}}"></yo-grouplist>
+
+				<yo-messagelist id="messageList" group="{{selectedGroup}}" userId="{{user.id}}" on-back="{{onback}}"
+					on-user-error="{{handleError}}" on-group-updated="{{onGroupUpdate}}"
+					on-group-deleted="{{onGroupDelete}}" selectedTags="{{selectedTags}}"
+					on-like-changed="{{onLikeChanged}}" on-message-newlabel="{{onNewLabel}}"
+					on-message-delete="{{onMessageDeleted}}"></yo-messagelist>
+
+		    </core-animated-pages>
+
+		</core-drawer-panel>
+
+		<div id="loadingPage" horizontal layout center fit cross-fade class="loadingBacktround">
+			<div class="spinner">
+			  <div class="dot1"></div>
+			  <div class="dot2"></div>
+			</div>
+		</div>
+
+		<yo-http id="yoHttp"></yo-http>
+		<paper-toast id="toast" class="capsule" text="{{toastMessage}}" style="padding-right: 60px;"></paper-toast>
+	</template>
+	<script>
+	(function () {
+      var findMessageInex = function (messages, target) {
+        for (var index in messages) {
+          if (messages[index].id == target.id) return index;
+        }
+      };
+
+		var findIndex = function (groups, targetId) {
+			for (var index in groups) {
+				var group = groups[index];
+				if (group.id == targetId) {
+					return index;
+				}
+			}
+		};
+		Polymer({
+			ready: function () {
+				this.curPage = 0;
+
+				var search = window.location.search;
+				if (search && search.indexOf('user=') >= 0 && search.slice(search.indexOf('user=') + 5)) {
+					var user = search.slice(search.indexOf('user=') + 5);
+					this.$.yoHttp.makeRequest(this, function (scope, result) {
+						if (result) {
+							scope.user = result;
+							scope.async(function () {
+							  scope.$.mainPage.hidden = false;
+
+						      var player = scope.$.loadingPage.animate([
+						        {opacity: "1.0"},
+						        {opacity: "0.0"}
+						      ], {
+						        direction: "alternate", duration: 600, fill: 'forwards'
+						      });
+
+						      player.onfinish = function(e) {
+						        scope.$.loadingPage.hidden = true;
+						      };
+							}, null, 1500);
+						} else {
+							scope.toastMessage = detail.response.data;
+							scope.$.toast.show();
+						}
+					}, './api/user', 'GET', {
+						extid: user
+					});
+				}
+			},
+			onSelectGroup: function (event, detail, sender) {
+				this.selectedGroup = detail;
+				this.curPage = 1;
+			},
+			onback: function (event, detail, sender) {
+				this.curPage = 0;
+			},
+			onGroupUpdate: function (event, detail, sender) {
+				var index = findIndex(this.user.groups, detail.id);
+				if (index) {
+					this.user.groups[index] = detail;
+				}
+			},
+			onGroupDelete: function (event, detail, sender) {
+				var index = findIndex(this.user.groups, detail.id);
+				if (index) {
+					this.user.groups.splice(index, 1);
+					this.curPage = 0;
+				}
+			},
+			onTagFilterChange: function (event, detail, sender) {
+				this.$.messageList.refreshList();
+			},
+			onMessageDeleted: function (event, detail, sender) {
+				  var targetMessages = this.$.messageList.getMessages();
+		          var index = findMessageInex(targetMessages, detail);
+		          if (index >= 0) {
+		            targetMessages.splice(index, 1);
+		          }
+				this.user.draftCount--;
+			},
+			onSendFinished: function (drift, messages, updatedGroup) {
+				if (drift.id) {
+					this.user.draftCount--;
+				}
+				this.$.messageList.onSendFinished(drift, messages, updatedGroup);
+			},
+			onSaveDraftFinished: function (draft) {
+				if (draft) {
+					this.user.draftCount++;
+				}
+			},
+			onNavLikesClicked: function (event, detail, sender) {
+				this.selectedGroup = {
+					id: 'LIKES',
+					name: '我赞过的'
+				};
+				this.curPage = 1;
+			},
+			onNavLabledClicked: function (event, detail, sender) {
+				this.selectedGroup = {
+					id: 'LABLED',
+					name: '我标记过的'
+				};
+				this.curPage = 1;
+			},
+			onNavDraftClicked: function (event ,detail, sender) {
+				this.selectedGroup = {
+					id: 'DRAFT',
+					name: '草稿箱'
+				};
+				this.curPage = 1;
+			},
+			onLikeChanged: function (event, detail ,sender) {
+				if (detail == 'true') {
+					this.user.likeCount++;
+				} else if (detail == 'false') {
+					this.user.likeCount--;
+				}
+			},
+			onNewLabel: function (event, detail ,sender) {
+				this.user.labledCount++;
+			},
+			getGroup: function (grouId) {
+				for (var index in this.user.groups) {
+					var group = this.user.groups[index];
+					if (group.id == grouId) {
+						return group;
+					}
+				}
+			}
+		});
+	})();
+	</script>
+</polymer-element>
+
+
+
+
+
+
+
+
+
+
+
+
