@@ -43,7 +43,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 				});
 			});
 		} else {
-			Group.find({$or: [{'members': user._id}, {'creater': userId}]}).exec(function (err, groups) {
+			Group.find({$or: [{'members': user._id}, {'creater': user._id}]}).exec(function (err, groups) {
 				if (groups) {
 					var groupIds = [];
 					groups.forEach(function (item) {
