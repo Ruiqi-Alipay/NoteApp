@@ -26,11 +26,13 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 
 	User.findOne({'extId': workCardUserId}, function (err, user) {
 		if (user) {
-			request.get('https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
+			var url = 'https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
 					+ 'workCardAppToken=' + workCardAppToken
 					+ '&workCardNamespace=' + workCardNamespace
 					+ '&workCardUserId=' + workCardUserId
-					+ '&emplid=' + workCardUserId,
+					+ '&emplid=' + workCardUserId;
+			console.log(url);
+			request.get(url,
 				function (err, httpResponse, body) {
 		      		console.log(body);
 		      		res.json(body);
