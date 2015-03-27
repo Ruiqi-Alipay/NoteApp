@@ -5,6 +5,13 @@ var router = express.Router();
 var User = require(path.join(__dirname, '..', 'mongo', 'user.js'));
 var Group = require(path.join(__dirname, '..', 'mongo', 'group.js'));
 var Message = require(path.join(__dirname, '..', 'mongo', 'message.js'));
+var utils = require('./utils.js');
+
+var findGroupName = function (groups, targetId) {
+	for (var index in groups) {
+		if (groups[index]._id == targetId) return groups[index].name;
+	}
+};
 
 router.get('/getlatest.json&dev=true', function (req, res, next) {
 	var workCardUserId = req.query.workCardUserId;
@@ -44,10 +51,16 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 					});
 
 					Message.find({groupId: {$in: groupIds}}).sort('-timestamp').limit(4).exec(function (err, messages) {
-						res.json({
-							success: true,
-							user: user,
-							notes: messages
+						utils.createClientMessageBatch(messages, user._id, function (clientMessages) {
+							clientMessages.forEach(function (msg) {
+								msg.groupName = findGroupName(groups, msg.groupId);
+							});
+
+							res.json({
+								success: true,
+								user: user,
+								notes: clientMessages
+							});
 						});
 					});
 				} else {
