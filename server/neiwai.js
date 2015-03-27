@@ -3,17 +3,13 @@ var path = require('path');
 
 var router = express.Router();
 
-router.get('/getlatest.json', function (req, res, next) {
-	console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
-	console.log(req);
+router.get('/getlatest.json&dev=true', function (req, res, next) {
 	res.json({
 		data: 'Just for test, get received!'
 	});
 });
 
-router.post('/getlatest.json', function (req, res, next) {
-	console.log('BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');
-	console.log(req);
+router.post('/getlatest.json&dev=true', function (req, res, next) {
 	res.json({
 		data: 'Just for test, post received!'
 	});
