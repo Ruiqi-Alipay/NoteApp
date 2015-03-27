@@ -1,6 +1,6 @@
 var path = require('path');
 var User = require(path.join(__dirname, '..', 'mongo', 'user.js'));
-var Group = require(path.join(__dirname, '..', 'mongo', 'group.js'))
+var Group = require(path.join(__dirname, '..', 'mongo', 'group.js'));
 var Message = require(path.join(__dirname, '..', 'mongo', 'message.js'));
 var Draft = require(path.join(__dirname, '..', 'mongo', 'draft.js'));
 var utils = require('./utils.js');
@@ -93,45 +93,25 @@ module.exports = {
 		});
 
 		User.findOne({'extId': extid}, function (err, user) {
-			if (!user) {
-				var user = new User({
-					name: extid,
-					description: '职位描述',
-					extId: extid
-				});
-				user.save(function (err, newUser) {
-					if (err) return res.json({
-						success: false,
-						data: '新建用户错误：' + err.toString()
-					});
+			if (err || !user) return next(new Error('User not found!'));
 
-					var clientUser = utils.createClientUser(newUser);
-					clientUser.groups = [];
+			prepareUserGroups(user._id.toString()).then(function (result) {
+				var clientUser = utils.createClientUser(user);
+				clientUser.groups = result.groups;
+				clientUser.likeCount = result.likeCount;
+				clientUser.labledCount = result.labledCount;
+				clientUser.draftCount = result.draftCount;
 
-					res.json({
-						success: true,
-						data: clientUser
-					});
+				res.json({
+					success: true,
+					data: clientUser
 				});
-			} else {
-				prepareUserGroups(user._id.toString()).then(function (result) {
-					var clientUser = utils.createClientUser(user);
-					clientUser.groups = result.groups;
-					clientUser.likeCount = result.likeCount;
-					clientUser.labledCount = result.labledCount;
-					clientUser.draftCount = result.draftCount;
-
-					res.json({
-						success: true,
-						data: clientUser
-					});
-				}).catch(function (err) {
-					res.json({
-						success: false,
-						data: '同步用户群组出错：' + err.toString()
-					})
-				});
-			}
+			}).catch(function (err) {
+				res.json({
+					success: false,
+					data: '同步用户群组出错：' + err.toString()
+				})
+			});
 		});
 	},
 	searchUser: function (req, res, next) {
