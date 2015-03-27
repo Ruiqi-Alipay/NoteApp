@@ -13,7 +13,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 	var workCardSignKey = req.query.workCardSignKey;
 
 	if (!workCardUserId) return res.json({
-		success: false;
+		success: false
 	});
 
 	User.findOne({'extId': workCardUserId}, function (err, user) {
