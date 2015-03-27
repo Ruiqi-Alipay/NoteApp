@@ -6,6 +6,7 @@ var User = require(path.join(__dirname, '..', 'mongo', 'user.js'));
 var Group = require(path.join(__dirname, '..', 'mongo', 'group.js'));
 var Message = require(path.join(__dirname, '..', 'mongo', 'message.js'));
 var utils = require('./utils.js');
+var request = require('request');
 
 var findGroupName = function (groups, targetId) {
 	for (var index in groups) {
@@ -19,29 +20,39 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 	var workCardNamespace = req.query.workCardNamespace;
 	var workCardSignKey = req.query.workCardSignKey;
 
-	if (!workCardUserId) return res.json({
+	if (!workCardUserId || !workCardAppToken || !workCardNamespace) return res.json({
 		success: false
 	});
 
 	User.findOne({'extId': workCardUserId}, function (err, user) {
-		if (!user) {
-			var user = new User({
-				name: '测试用户名',
-				description: '测试职位描述',
-				extId: workCardUserId,
-				header: path.join(os.hostname(), 'resource', 'default.jpg')
-			});
-			user.save(function (err, newUser) {
-				if (err) return res.json({
-					success: false
-				});
+		if (user) {
+			request.get('https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
+					+ 'workCardAppToken=' + workCardAppToken
+					+ '&workCardNamespace=' + workCardNamespace
+					+ '&workCardUserId=' + workCardUserId
+					+ '&emplid=' + workCardUserId,
+				function (err, httpResponse, body) {
+		      		console.log(body);
+		      		res.json(body);
+		    	}
+		    );
+			// var user = new User({
+			// 	name: '测试用户名',
+			// 	description: '测试职位描述',
+			// 	extId: workCardUserId,
+			// 	header: path.join(os.hostname(), 'resource', 'default.jpg')
+			// });
+			// user.save(function (err, newUser) {
+			// 	if (err) return res.json({
+			// 		success: false
+			// 	});
 
-				res.json({
-					success: true,
-					user: newUser,
-					notes: []
-				});
-			});
+			// 	res.json({
+			// 		success: true,
+			// 		user: newUser,
+			// 		notes: []
+			// 	});
+			// });
 		} else {
 			Group.find({$or: [{'members': user._id}, {'creater': user._id}]}).exec(function (err, groups) {
 				if (groups) {
