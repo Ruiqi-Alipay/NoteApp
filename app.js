@@ -22,6 +22,13 @@ app.get('/', function(req, res){
 	res.sendFile(path.join(__dirname, 'webapp', 'index.html'));
 });
 
+app.get('/*', function (req, res, next) {
+	console.log(req.url);
+	res.json({
+		data: req.url
+	})
+});
+
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
     var err = new Error('Not Found');
