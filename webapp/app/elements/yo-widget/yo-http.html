@@ -1,0 +1,348 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-ajax/core-ajax.html">
+<link rel="import" href="../../../components/paper-input/paper-input.html">
+<link rel="import" href="../../../components/paper-button/paper-button.html">
+<link rel="import" href="../../../components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../../../components/paper-dialog/paper-action-dialog.html">
+<link rel="import" href="../../../components/paper-toast/paper-toast.html">
+
+<polymer-element name="yo-http">
+	<template>
+		<link rel="stylesheet" href="yo-http.css">
+	    <paper-action-dialog id="dialog" heading="{{subject}}" transition="core-transition-center" style="width: 600px;">
+			<paper-input-decorator class="custom" label="群名称" floatingLabel error="请输入群组名称!" hidden?="{{!editor}}" autoValidate>
+			  	<input is="core-input" value="{{groupName}}" disabled?="{{busy}}" required>
+			</paper-input-decorator>
+
+			<div layout horizontal flex end-justified center>
+				<paper-spinner active?="{{busy}}"></paper-spinner>
+				<paper-button on-click="{{cancelDialog}}" disabled?="{{busy}}">取消</paper-button>
+				<paper-button autofocus disabled?="{{(editor && !groupName) || busy}}" on-click="{{onConfirm}}">确定</paper-button>
+			</div>
+	    </paper-action-dialog>
+		<paper-toast id="toast" class="capsule" text="{{toastMessage}}"
+			style="padding-right: 60px;"></paper-toast>
+		<core-ajax id="ajax" handleAs="json"></core-ajax>
+	</template>
+	<script>
+	(function () {
+	    var makeRequest = function (scope, callback, url, method, params, body, contentType) {
+	        var responseCallback = function (event) {
+	          scope.$.ajax.removeEventListener('core-response', responseCallback);
+	          scope.$.ajax.removeEventListener('core-error', errorCallback);
+
+	          if (event.detail.response.success) {
+	            callback(scope, event.detail.response.data, event.detail.response.ext);
+	          } else {
+				scope.toastMessage = event.detail.response.data;
+				scope.$.toast.show();
+	            callback(scope);
+	          }
+	        };
+	        var errorCallback = function (event) {
+		        scope.$.ajax.removeEventListener('core-response', responseCallback);
+		        scope.$.ajax.removeEventListener('core-error', errorCallback);
+
+				scope.toastMessage = '操作失败！';
+				scope.$.toast.show();
+	        	callback(scope);
+	        };
+
+	        scope.$.ajax.url = url;
+	        if (contentType) {
+	          scope.$.ajax.contentType = contentType;
+	        } else {
+	          scope.$.ajax.contentType = 'application/x-www-form-urlencoded';
+	        }
+	        
+	        scope.$.ajax.method = method;
+	        scope.$.ajax.params = params;
+	        scope.$.ajax.body = body ? JSON.stringify(body) : undefined;
+	        scope.$.ajax.addEventListener('core-response', responseCallback);
+	        scope.$.ajax.addEventListener('core-error', errorCallback);
+	        scope.$.ajax.go();
+	    };
+	    var encodeQueyTags = function (selectedTags) {
+	        if (!selectedTags) return;
+
+	        var tags = [];
+	        selectedTags.forEach(function (item) {
+	          if (item.select) {
+	            tags.push(item.name);
+	          }
+	        });
+
+	        if (tags.length > 0) return encodeURIComponent(tags.join(','));
+	    };
+		var findIndex = function (groups, targetId) {
+			for (var index in groups) {
+				var group = groups[index];
+				if (group.id == targetId) {
+					return index;
+				}
+			}
+		};
+
+		Polymer({
+			loadUser: function (successCallback) {
+				var search = window.location.search;
+				if (!search || search.indexOf('user=') < 0) {
+					return;
+				}
+
+				var user = search.slice(search.indexOf('user=') + 5);
+				makeRequest(this, function (scope, loginUser) {
+					if (loginUser) {
+						successCallback(loginUser);
+						scope.fire('core-signal', {name: 'user-changed'});
+					}
+				}, './api/user', 'GET', {
+					extid: user
+				});
+			},
+			createGroup: function (user) {
+				this.subject = '新建群组';
+				this.editor = true;
+				this.groupName = '';
+				this.onConfirm = function () {
+					this.busy = true;
+					makeRequest(this, function (scope, newGroup) {
+						scope.busy = false;
+						scope.$.dialog.close();
+						if (newGroup) {
+							user.groups.push(newGroup);
+							scope.fire('core-signal', {name: 'user-changed'});
+						}
+					}, './api/group', 'POST', undefined, {
+						userid: user.id,
+						name: this.groupName
+					}, 'application/json');
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+				}
+				this.$.dialog.open();
+			},
+		    loadMessages: function (userId, group, groupTags, lastTimestamp, callback) {
+		        this.async(function () {
+		          var requestUrl;
+		          var requestParams = {
+		              last: lastTimestamp
+		          };
+
+		          if (group.id == 'LIKES') {
+		            requestUrl = './api/user/' + userId + '/likes';
+		          } else if (group.id == 'LABLED') {
+		            requestUrl = './api/user/' + userId + '/labels';
+		          } else if (group.id == 'DRAFT') {
+		            requestUrl = './api/user/' + userId + '/draft';
+		          } else {
+		            requestUrl = './api/group/' + group.id + '/message';
+		            requestParams.userid = userId;
+		            requestParams.tags = encodeQueyTags(groupTags);
+		          }
+
+		          makeRequest(this, function (scope, messages) {
+		            if (messages && messages.length == 0) {
+						scope.toastMessage = '已加载全部历史记录';
+						scope.$.toast.show();
+		            }
+		            callback(messages);
+		          }, requestUrl, 'GET', requestParams);
+		        }, null, 300);
+		    },
+		    searchMembers: function (searchText, callback) {
+				if (this.memberHandler) {
+				  this.cancelAsync(this.memberHandler);
+				  this.memberHandler = undefined;
+				}
+
+				this.memberHandler = this.async(function() {
+				  var encoded = encodeURIComponent(searchText);
+				  makeRequest(this, function (scope, user) {
+				  	callback(user);
+				  }, './api/user/search', 'GET', {
+				    user: encoded
+				  });
+				}, null, 1000);
+		    },
+		    addGroupMember: function (userId, groupId, memberId, callback) {
+		    	this.async(function () {
+					makeRequest(this, function (scope, result) {
+						callback(result.members);
+					}, './api/group/' + groupId + '/addmember', 'POST', undefined, {
+						userid: userId,
+						memberId: memberId
+					}, 'application/json');
+		    	}, null, 600);
+		    },
+		    removeGroupMember: function (userId, groupId, memberId, callback) {
+				this.subject = '移除用户?';
+				this.editor = false;
+				this.onConfirm = function () {
+					this.busy = true;
+					makeRequest(this, function (scope, updatedGroup) {
+						scope.busy = false;
+						scope.$.dialog.close();
+						callback(updatedGroup.members);
+					}, './api/group/' + groupId + '/removemember', 'POST', undefined, {
+						userid: userId,
+						memberId: memberId
+					}, 'application/json');
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+				}
+				this.$.dialog.open();
+		    },
+		    searchMessages: function (userId, groupId, searchText, callback) {
+		        if (this.searchHandler) {
+		          this.cancelAsync(this.searchHandler);
+		          this.searchHandler = undefined;
+		        }
+
+		        this.searchHandler = this.async(function() {
+		          var encoded = encodeURIComponent(searchText);
+		          var requestUrl;
+		          var requestParams = {
+		              q: encoded
+		          };
+
+		          if (groupId == 'LIKES') {
+		            requestUrl = './api/user/' + userId + '/likes';
+		          } else if (groupId == 'LABLED') {
+		            requestUrl = './api/user/' + userId + '/labels';
+		          } else {
+		            requestUrl = './api/group/' + groupId + '/message/contentsearch';
+		            requestParams.userid = userId;
+		          }
+
+		          makeRequest(this, function (scope, messages) {
+		              if (messages && messages.length == 10) {
+						scope.toastMessage = '查询结果过多，按时间顺序显示前10个';
+						scope.$.toast.show();
+		              }
+		              callback(messages);
+		          }, requestUrl, 'GET', requestParams);
+		        }, null, 1000);
+		    },
+		    loadGroupMembers: function (userId, groupId, callback) {
+				makeRequest(this, function (scope, members) {
+					callback(members);
+				}, './api/group/' + groupId + '/members', 'GET', {
+					userid: userId
+				});
+		    },
+		    editGroup: function (user, groupId) {
+				this.subject = '编辑群组';
+				this.editor = true;
+				this.groupName = user.groups[findIndex(user.groups, groupId)].name;
+				this.onConfirm = function () {
+					this.busy = true;
+					makeRequest(this, function (scope, updatedGroup) {
+						scope.busy = false;
+						scope.$.dialog.close();
+						if (updatedGroup) {
+							var index = findIndex(user.groups, updatedGroup.id);
+							if (index >= 0) {
+								user.groups[index].name = updatedGroup.name;
+							}
+						}
+					}, './api/group/' + groupId, 'POST', undefined, {
+						userid: user.id,
+						name: this.groupName
+					}, 'application/json');
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+				}
+				this.$.dialog.open();
+		    },
+		    deleteGroup: function (user, groupId) {
+				this.subject = '删除群组';
+				this.editor = false;
+				this.onConfirm = function () {
+					this.busy = true;
+					makeRequest(this, function (scope, deletedGroup) {
+						scope.busy = false;
+						scope.$.dialog.close();
+						if (deletedGroup) {
+							var index = findIndex(user.groups, deletedGroup.id);
+							if (index >= 0) {
+								user.groups.splice(index, 1);
+							}
+							scope.fire('core-signal', {name: 'user-changed'});
+						}
+					}, './api/group/' + groupId, 'DELETE', undefined, {
+						userid: user.id,
+						name: this.groupName
+					}, 'application/json');
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+				}
+				this.$.dialog.open();
+		    },
+		    likeMessage: function (user, message, callback) {
+				var like;
+				if (message.likes.indexOf(user.id) >= 0) {
+					like = 'false';
+				} else {
+					like = 'true';
+				}
+
+				makeRequest(this, function (scope, message) {
+					if (like == 'true') {
+						user.likeCount++;
+					} else if (like == 'false') {
+						user.likeCount--;
+					}
+					callback(message ? message[0] : undefined);
+					scope.fire('core-signal', {name: 'user-changed'});
+				}, './api/message/like/' + user.id, 'GET', {
+					like: like,
+					msgid: message.id
+				})
+		    },
+		    labelMessage: function (user, labelText, messageId, callback) {
+				makeRequest(this, function (scope, message) {
+					user.labledCount++;
+					callback(message ? message[0] : undefined);
+					scope.fire('core-signal', {name: 'user-changed'});
+				}, './api/message/label/' + user.id, 'GET', {
+					label: labelText,
+					msgid: messageId
+				});
+		    },
+		    deleteMessage: function (user, message, callback) {
+		    	if (message.senderName) {
+					makeRequest(this, function (scope, message) {
+						var deletedMessage = message ? message[0] : undefined;
+						callback(deletedMessage);
+						scope.fire('core-signal', {name: 'user-changed'});
+					}, './api/message/' + message.id, 'DELETE', undefined, {
+						userid: user.id
+					}, 'application/json');
+		    	} else {
+					makeRequest(this, function (scope, message) {
+						callback(message ? message[0] : undefined);
+						user.draftCount--;
+					}, './api/user/' + user.id + '/draft/' + message.id, 'DELETE');
+		    	}	
+		    }
+		});
+	})();
+	</script>
+</polymer-element>
+
+
+
+
+
+
+
+
+
+
+
+

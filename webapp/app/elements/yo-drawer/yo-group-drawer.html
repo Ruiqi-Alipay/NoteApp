@@ -1,0 +1,179 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-header-panel/core-header-panel.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/core-animated-pages/core-animated-pages.html">
+<link rel="import" href="../../../components/core-animated-pages/transitions/slide-from-right.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../../../components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../../../components/paper-tabs/paper-tabs.html">
+
+<polymer-element name="yo-group-drawer" attributes="selectedGroup userId groupTags fancyBackground">
+	<template>
+		<link rel="stylesheet" href="yo-group-drawer.css">
+
+		<core-header-panel fit fixed>
+		    <div layout vertical>
+			    <div class="drawer-title">
+			    	<img src="{{fancyBackground}}" style="max-width: 256px; max-height: 192px;">
+			    	<div layout horizontal center fit>
+			    		<div class="user-header" style="background-image: url({{user.header}})"></div>
+			    		<div layout vertical>
+			    			<div class="title-subject">{{selectedGroup.name}}</div>
+			    			<div class="title-description">共{{selectedGroup.counts}}篇笔记</div>
+			    		</div>
+			    	</div>
+			    </div>
+				<paper-tabs class="group-tabs" selected="{{tabSelection}}">
+					<paper-tab>显示标签</paper-tab>
+					<paper-tab>群组成员</paper-tab>
+				</paper-tabs>
+				<core-animated-pages selected="{{tabSelection}}" transitions="slide-from-right">
+					<section>
+				   		<div layout horizontal wrap style="padding: 0px 8px;">
+					   		<template repeat="{{tag in groupTags}}">
+					   			<paper-shadow class="tag-card" z="1">
+					   				<paper-checkbox for label="{{tag.name}}" checked="{{tag.select}}"
+					   					on-change="{{tagSelectChange}}"></paper-checkbox>
+					   			</paper-shadow>
+					   		</template>
+				   		</div>
+					</section>
+					<section>
+						<div layout vertical>
+				   			<paper-shadow class="search-panel" z="1" horizontal layout center hidden?="{{userId != selectedGroup.creater}}">
+				   				<input id="searchMemberInput" is="core-input" placeholder="添加群成员"
+				   					value="{{searchText}}" disabled?="{{adding}}" flex>
+				   				<paper-spinner active?="{{searching}}"></paper-spinner>
+				   			</paper-shadow>
+				   			<paper-shadow class="search-result-panel" z="1" horizontal layout center hidden?="{{!searchedUser}}">
+								<div layout horizontal center flex>
+									<div class="member-header" style="background-image: url({{searchedUser.header}})"></div>
+									<div layout vertical flex>
+										<div class="member-name">{{searchedUser.name}}</div>
+										<div class="member-description">{{searchedUser.description}}</div>
+									</div>
+									<paper-fab mini icon="add" class="blue" title="添加" on-click="{{addMember}}" hidden?="{{searchItemInMember || adding}}"></paper-fab>
+									<paper-spinner active?="{{adding}}" hidden?="{{!adding}}"></paper-spinner>
+								</div>
+				   			</paper-shadow>
+					   		<template repeat="{{member in selectedGroup.members}}">
+								<div class="member-menu" layout horizontal center>
+									<div class="member-header" style="background-image: url({{member.header}})"></div>
+									<div layout vertical flex>
+										<div class="member-name">{{member.name}}</div>
+										<div class="member-description">{{member.description}}</div>
+									</div>
+									<core-icon-button icon="close" title="移除用户" on-click="{{removeMember}}"
+										hidden?="{{userId != selectedGroup.creater || member.id == selectedGroup.creater}}"></core-icon-button>
+								</div>
+					   		</template>
+						</div>
+					</section>
+				</core-animated-pages>
+		    </div>
+		</core-header-panel>
+	</template>
+	<script>
+	(function() {
+		var isUserInMember = function (members, user) {
+			if (members && user) {
+				for (var index in members) {
+					if (members[index].id == user.id) return true;
+				}
+			}
+		};
+		var isSpecialGroup = function (newGroupId) {
+			if (newGroupId == 'LIKES' || newGroupId == 'LABLED' || newGroupId == 'DRAFT') return true;
+		}
+
+		Polymer({
+			ready: function () {
+				this.groupTags = [];
+				this.tabSelection = 0;
+				this.searching = false;
+			},
+			selectedGroupChanged: function (oldValue, newValue) {
+				if (!newValue || isSpecialGroup(newValue.id)) {
+					return;
+				}
+
+				if (!oldValue || newValue.id != oldValue.id) {
+					this.groupTags.length = 0;
+					if (newValue.msgTags) {
+						for (var index in newValue.msgTags) {
+							this.groupTags.push({
+								name: newValue.msgTags[index],
+								select: true
+							});
+						}
+					}
+
+					var scope = this;
+					this.fire('http-action', {
+						action: 'get-group-members',
+						groupId: this.selectedGroup.id,
+						callback: function (members) {
+							scope.selectedGroup.members = members;
+						}
+					})
+				} else if (oldValue && oldValue.msgTags != newValue.msgTags) {
+					for (var index in newValue.msgTags) {
+						var item = newValue.msgTags[index];
+						if (!oldValue.msgTags || oldValue.msgTags.indexOf(item) < 0) {
+							this.groupTags.push({
+								name: item,
+								select: true
+							});
+						}
+					}
+				}
+			},
+			tagSelectChange: function (oldValue, newValue) {
+				this.fire('tag-checked-change');
+			},
+			searchTextChanged: function (oldValue, newValue) {
+				if (newValue && oldValue != newValue) {
+					var scope = this;
+					this.fire('http-action', {
+						action: 'search-members',
+						searchText: newValue,
+						callback: function (user) {
+							scope.searching = false;
+							scope.searchedUser = user;
+							scope.searchItemInMember = isUserInMember(scope.selectedGroup.members, user);
+						}
+					});
+					scope.searching = true;
+				}
+			},
+			addMember: function (event, detail, sender) {
+				var scope = this;
+				this.adding = true;
+				this.fire('http-action', {
+					action: 'add-member',
+					groupId: this.selectedGroup.id,
+					memberId: this.searchedUser.id,
+					callback: function (members) {
+						scope.adding = false;
+						scope.searchedUser = undefined;
+						scope.searchText = undefined;
+						scope.selectedGroup.members = members;
+					}
+				});
+			},
+			removeMember: function (event, detail, sender) {
+				var targetMember = event.target.templateInstance.model.member;
+				var scope = this;
+				this.fire('http-action', {
+					action: 'remove-member',
+					groupId: this.selectedGroup.id,
+					memberId: targetMember.id,
+					callback: function (members) {
+						scope.selectedGroup.members = members;
+					}
+				});
+			}
+		});
+	})();
+	</script>
+</polymer-element>

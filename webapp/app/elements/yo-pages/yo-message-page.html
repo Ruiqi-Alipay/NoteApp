@@ -1,0 +1,233 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-header-panel/core-header-panel.html">
+<link rel="import" href="../../../components/core-toolbar/core-toolbar.html">
+<link rel="import" href="../../../components/core-field/core-field.html">
+<link rel="import" href="../../../components/core-animation/core-animation.html">
+<link rel="import" href="../../../components/core-icon-button/core-icon-button.html">
+<link rel="import" href="../../../components/core-scroll-threshold/core-scroll-threshold.html">
+<link rel="import" href="../../../components/paper-fab/paper-fab.html">
+<link rel="import" href="../../../components/paper-input/paper-autogrow-textarea.html">
+<link rel="import" href="../../../components/paper-input/paper-input-decorator.html">
+<link rel="import" href="../../../components/paper-input/paper-input.html">
+<link rel="import" href="../../../components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="yo-message-item.html">
+
+<polymer-element name="yo-message-page" attributes="selectedGroup userId">
+  <template>
+    <link rel="stylesheet" href="yo-message-page.css">
+
+    <div layout vertical style="position: relative; height: 100%;" fit hero-id="group-{{selectedGroup.id}}" hero>
+      <core-scroll-threshold id="threshold" scrollTarget="{{$.headerPanel.scroller}}" lowerThreshold="25" on-lower-trigger="{{loadMore}}" fit></core-scroll-threshold>
+      <core-header-panel id="headerPanel" fit fixed>
+        <core-toolbar class="messagelist-header" mode="standard">
+          <core-icon-button icon="arrow-back" on-click="{{onExitPage}}" hidden?="{{specialGroup}}"></core-icon-button>
+          <div style="padding-left: 10px;" flex>{{groupTitle}}</div>
+          <paper-input class="custom" label="笔记查询" value="{{searchText}}" style="font-size: 16px;" hidden?="{{!searchMode}}"></paper-input>
+          <core-icon-button icon="close" on-tap="{{exitSearchMode}}" title="关闭查询模式" hidden?="{{!searchMode}}"></core-icon-button>
+          <core-icon-button icon="search" on-click="{{enterSearchMode}}" title="进入查询模式" hidden?="{{searchMode || selectedGroup.id == 'DRAFT'}}"></core-icon-button>
+          <core-icon-button icon="text-format" on-click="{{onEditGroup}}" title="编辑群组" hidden?="{{specialGroup}}">
+          </core-icon-button>
+        </core-toolbar>
+
+        <div id="scroller" layout vertical>
+          <div hidden?="{{loading || messages.length > 0}}" style="color: gray; font-size: 16px;" self-center>
+          {{searchMode ? (searchText ? '没有搜索到内容包含 "' + searchText + '" 的笔记' : '') : emptyMessage}}</div>
+          <template repeat="{{msg, index in messages}}">
+            <div class="messageContainer" layout horizontal>
+              <div layout vertical center style="margin-right: 15px; max-width: 50px;">
+                <div class="middle avatar" style="background-image: url({{msg.senderHeader}})"></div>
+                <div class="message-sender">{{msg.senderName}}</div>
+              </div>
+              <paper-shadow z="1" flex>
+                <yo-message-item message="{{msg}}" userId="{{userId}}" itemIndex="{{index}}" draftItem="{{selectedGroup.id == 'DRAFT'}}" selectIndex="{{selectIndex}}"></yo-message-item>
+              </paper-shadow>
+            </div>
+          </template>
+          <paper-spinner active?="{{loading}}" style="margin: 20px;" self-center></paper-spinner>
+        </div>
+      </core-header-panel>
+      <paper-fab id="sendButton" icon="create" class="blue" title="新笔记"
+            on-tap="{{openEditor}}" hidden?="{{specialGroup}}"></paper-fab>
+    </div>
+  </template>
+  <script>
+    (function () {
+      var scrollToTop = function (targetElement) {
+        var animation = new CoreAnimation();
+        animation.duration = 300;
+        animation.target = targetElement;
+        animation.fill = 'forwards';
+        var total = targetElement.scrollTop;
+        animation.customEffect = function(timeFraction, target, animation) {
+          target.scrollTop = (1 - timeFraction) * total;
+        };
+        animation.play();
+      };
+      var loadMessages = function (scope) {
+        scope.loading = true;
+        scope.fire('http-action', {
+          action: 'laod-messages',
+          lastTimestamp: (scope.messages && scope.messages.length > 0) ?
+                      scope.messages[scope.messages.length - 1].timestamp : undefined,
+          callback: function (messages) {
+            if (messages) {
+              messages.forEach(function (item) {
+                scope.messages.push(item);
+              });
+            }
+            scope.loading = false;
+          }
+        });
+      };
+      var findMessageInex = function (messages, target) {
+        for (var index in messages) {
+          if (messages[index].id == target.id) return index;
+        }
+      };
+
+      Polymer({
+        ready: function () {
+          this.selectIndex = -1;
+          this.loading = false;
+          this.searchMode = false;
+        },
+        onExitPage: function (event, detail, sender) {
+          this.fire('page-exit');
+        },
+        selectedGroupChanged: function (oldValue, newValue) {
+          if (!newValue) {
+            this.messages = undefined;
+          } else if (newValue && (!oldValue || oldValue.id != newValue.id)) {
+            this.specialGroup = (this.selectedGroup.id == 'LIKES' || this.selectedGroup.id == 'LABLED' || this.selectedGroup.id == 'DRAFT');
+            this.messages = [];
+
+            if (this.selectedGroup.id == 'LIKES') {
+              this.emptyMessage = '你还没有赞过任何笔记哦，快去赞一下小伙伴的优秀笔记吧';
+              this.groupTitle = '我赞过的';
+            } else if (this.selectedGroup.id == 'LABLED') {
+              this.emptyMessage = '你还没有标记过任何笔记哦，快去标记一下小伙伴的优秀笔记吧';
+              this.groupTitle = '我标记过的';
+            } else if (this.selectedGroup.id == 'DRAFT') {
+              this.emptyMessage = '没有草稿';
+              this.groupTitle = '草稿箱';
+            } else {
+              this.emptyMessage = '这个群组还没有笔记哦，记些什么吧';
+              this.groupTitle = '';
+            }
+
+            loadMessages(this);
+          }
+        },
+        openEditor: function (event, detail, sender) {
+          var editorContainer = document.getElementById('editor-container');
+          editorContainer.showEditor({
+            groupId: this.selectedGroup.id,
+            userId: this.userId
+          });
+        },
+        onSendFinished: function (drift, messages, updatedGroup) {
+          if (drift.id && this.specialGroup) {
+            var index = findMessageInex(this.messages, drift);
+            if (index >= 0) {
+              this.messages.splice(index, 1);
+            }
+          } else if (!this.specialGroup) {
+            if (messages) {
+              messages.reverse();
+              for (var index in messages) {
+                this.messages.unshift(messages[index]);
+              }
+
+              if (!this.selectedGroup.recents) {
+                this.selectedGroup.recents = [];
+              }
+
+              if (messages.length == 1) {
+                this.selectedGroup.recents.unshift(messages[0]);
+              } else if (messages.length >= 2) {
+                this.selectedGroup.recents.unshift(messages[1]);
+                this.selectedGroup.recents.unshift(messages[0]);
+              }
+
+              if (this.selectedGroup.recents.length > 2) {
+                this.selectedGroup.recents.splice(2);
+              }
+            }
+            scrollToTop(this.$.headerPanel.scroller);
+
+            if (updatedGroup) {
+              updatedGroup.members = this.selectedGroup.members;
+              this.selectedGroup = updatedGroup;
+            }
+
+            this.newMsgTags = [];
+            if (updatedGroup.msgTags) {
+              for (var index in updatedGroup.msgTags) {
+                this.newMsgTags.push({
+                  name: updatedGroup.msgTags[index],
+                  select: false
+                })
+              }
+            }
+          }
+        },
+        loadMore: function (event, detail, sender) {
+          if (this.searchMode) return;
+
+          loadMessages(this);
+        },
+        searchTextChanged: function (oldValue, newValue) {
+          if (newValue && oldValue != newValue) {
+            var scope = this;
+            scope.loading = true;
+            scope.messages = [];
+            this.fire('http-action', {
+              action: 'search-messages',
+              searchText: newValue,
+              callback: function (messages) {
+                scope.messages = messages;
+                scope.loading = false;
+              }
+            });
+          }
+        },
+        enterSearchMode: function (event, detail, sender) {
+          this.restoreMessage = this.messages;
+          this.messages = [];
+          this.searchMode = true;
+        },
+        exitSearchMode: function (event, detail, sender) {
+          this.messages = this.restoreMessage;
+          this.restoreMessage = undefined;
+          this.searchMode = false;
+        },
+        onEditGroup: function (event, detail, sender) {
+          this.fire('http-action', {
+            action: 'edit-group',
+            groupId: this.selectedGroup.id
+          });
+        },
+        refreshList: function () {
+          this.messages = [];
+          loadMessages(this);
+        },
+        onMessageDeleted: function (message) {
+          var index = findMessageInex(this.messages, message);
+          if (index >= 0) {
+            this.messages.splice(index, 1);
+          }
+        },
+        messageLikeChange: function (message) {
+          if (this.selectedGroup.id == 'LIKES' && message.likes.indexOf(this.userId) < 0) {
+            var index = findMessageInex(this.messages, message);
+            if (index >= 0) {
+              this.messages.splice(index, 1);
+            }
+          }
+        }
+      });
+    })();
+  </script>
+</polymer-element>

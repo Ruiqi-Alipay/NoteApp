@@ -24,6 +24,13 @@ var findLabelIndex = function (labels, newLabel) {
 };
 
 module.exports = {
+	messageId: function (req, res, next, id) {
+		Message.findById(id, function (err, message) {
+			req.message = message;
+
+			return next();
+		});
+	},
 	likeMessage: function (req, res, next) {
 		if (!messageOperateCheck(req, res)) return;
 		if (!req.query.like || !req.query.msgid) return next(new Error('Like message url must have a like and a msgid prameter'));
@@ -104,5 +111,39 @@ module.exports = {
 				});
 			});
 		});
+	},
+	deleteMessage: function (req, res, next) {
+		if (!req.message) return res.json({
+			success: false,
+			data: '无效的笔记'
+		});
+
+			console.log(req.body);
+
+		if (!req.body.userid || req.body.userid != req.message.userId) return res.json({
+			success: false,
+			data: '你没有权限这样做'
+		});
+
+		req.message.remove(function (err, message) {
+			if (err) return res.json({
+				success: false,
+				data: '删除失败'
+			});
+
+			utils.createClientMessageBatch([message], req.body.userid, function (clientMessages) {
+				res.json({
+					success: true,
+					data: clientMessages
+				})
+			});
+		});
 	}
 };
+
+
+
+
+
+
+

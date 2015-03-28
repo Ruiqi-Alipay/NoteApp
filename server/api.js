@@ -20,8 +20,6 @@ router.get('/user/:userid/draft', userApi.getDrafts);
 router.delete('/user/:userid/draft/:draftId', userApi.deleteDraft);
 
 router.param('groupId', groupApi.groupId);
-router.param('messageId', groupApi.messageId);
-
 router.post('/group', groupApi.createGroup);
 router.delete('/group/:groupId', groupApi.deleteGroup);
 router.post('/group/:groupId', groupApi.updateGroup);
@@ -33,7 +31,9 @@ router.post('/group/:groupId/message', groupApi.createMessage);
 router.get('/group/:groupId/message', groupApi.getMessages);
 router.get('/group/:groupId/message/contentsearch', groupApi.searchContent);
 
+router.param('messageId', messageApi.messageId);
 router.get('/message/like/:userid', messageApi.likeMessage);
 router.get('/message/label/:userid', messageApi.labelMessage);
+router.delete('/message/:messageId', messageApi.deleteMessage)
 
 module.exports = router;

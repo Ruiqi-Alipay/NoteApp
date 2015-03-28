@@ -1,0 +1,49 @@
+#groupDialog {
+	width: 700px;
+}
+
+.group-container {
+	overflow-y: auto;
+	padding: 20px;
+}
+
+.group-card {
+	width: 250px;
+	height: 220px;
+	display: block;
+	box-sizing: border-box;
+	margin: 10px;
+}
+
+.group-card.create-card {
+	color: gray;
+	cursor: pointer;
+}
+
+.card-icon {
+	width: 60px;
+	height: 60px;
+}
+
+.card-title {
+	height: 40px;
+	padding-left: 10px;
+}
+
+.card-content {
+	background: url(../../images/bg_pattern_r1.png);
+	position: relative;
+	cursor: pointer;
+	padding: 8px;
+}
+
+.cardDate {
+	font-size: 14px;
+	color: gray;
+}
+
+.testOverflow {
+	text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}

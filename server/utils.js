@@ -12,6 +12,7 @@ var createClientUser = function (user) {
 var createClientMessage = function (message) {
 	return {
 		id: message._id.toString(),
+		userId: message.userId,
 		date: message.date,
 		timestamp: message.timestamp,
 		text: message.text,

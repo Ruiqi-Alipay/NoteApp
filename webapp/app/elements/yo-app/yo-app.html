@@ -2,13 +2,12 @@
 <link rel="import" href="../../../components/core-drawer-panel/core-drawer-panel.html">
 <link rel="import" href="../../../components/core-animated-pages/core-animated-pages.html">
 <link rel="import" href="../../../components/core-animated-pages/transitions/cross-fade.html">
-<link rel="import" href="../../../components/core-ajax/core-ajax.html">
-<link rel="import" href="../../../components/paper-toast/paper-toast.html">
-<link rel="import" href="../yo-navpanel/yo-navpanel.html">
-<link rel="import" href="../yo-grouppanel/yo-grouppanel.html">
-<link rel="import" href="../yo-grouplist/yo-grouplist.html">
-<link rel="import" href="../yo-messagelist/yo-messagelist.html">
-<link rel="import" href="../yo-http/yo-http.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../yo-drawer/yo-main-drawer.html">
+<link rel="import" href="../yo-drawer/yo-group-drawer.html">
+<link rel="import" href="../yo-pages/yo-group-page.html">
+<link rel="import" href="../yo-pages/yo-message-page.html">
+<link rel="import" href="../yo-widget/yo-http.html">
 
 <polymer-element name="yo-app">
 	<template>
@@ -16,23 +15,23 @@
 
 		<core-drawer-panel id="mainPage" cross-fade hidden>
 
-			<core-animated-pages drawer selected="{{curPage}}" transitions="cross-fade-all" flex>
-				<yo-navpanel user="{{user}}" on-select-group="{{onSelectGroup}}"
-					on-nav-likesclicked="{{onNavLikesClicked}}" on-nav-labledclicked="{{onNavLabledClicked}}"
-					on-nav-driftclicked="{{onNavDraftClicked}}"></yo-navpanel>
-				<yo-grouppanel group="{{selectedGroup}}" selectedTags="{{selectedTags}}"
-					userId="{{user.id}}" on-tag-change="{{onTagFilterChange}}"></yo-grouppanel>
-			</core-animated-pages>
+			<paper-shadow drawer flex z="2" style="height: 100%;">
+				<core-animated-pages selected="{{drawerPage}}" transitions="cross-fade-all" style="height: 100%;" flex>
+					<yo-main-drawer user="{{user}}" on-menu-clicked="{{onMenuSelected}}"
+						fancyBackground="{{fancyBackground}}"></yo-main-drawer>
+					<yo-group-drawer selectedGroup="{{selectedGroup}}" groupTags="{{groupTags}}"
+						userId="{{user.id}}" on-tag-checked-change="{{onTagFilterChange}}"
+						on-http-action="{{onHttpAction}}" fancyBackground="{{fancyBackground}}"></yo-group-drawer>
+				</core-animated-pages>
+			</paper-shadow>
 
-		    <core-animated-pages main id="pages" selected="{{curPage}}" transitions="cross-fade-all hero-transition" flex>
+		    <core-animated-pages main id="pages" selected="{{mainPage}}" transitions="cross-fade-all hero-transition" flex>
 
-				<yo-grouplist user="{{user}}" on-select-group="{{onSelectGroup}}" on-user-error="{{handleError}}"></yo-grouplist>
+				<yo-group-page id="groupPage" groups="{{user.groups}}" selectedGroup="{{selectedGroup}}"
+					on-http-action="{{onHttpAction}}"></yo-group-page>
 
-				<yo-messagelist id="messageList" group="{{selectedGroup}}" userId="{{user.id}}" on-back="{{onback}}"
-					on-user-error="{{handleError}}" on-group-updated="{{onGroupUpdate}}"
-					on-group-deleted="{{onGroupDelete}}" selectedTags="{{selectedTags}}"
-					on-like-changed="{{onLikeChanged}}" on-message-newlabel="{{onNewLabel}}"
-					on-message-delete="{{onMessageDeleted}}"></yo-messagelist>
+				<yo-message-page id="messageList" selectedGroup="{{selectedGroup}}" userId="{{user.id}}"
+					on-page-exit="{{onMessagePageExit}}" on-http-action="{{onHttpAction}}"></yo-message-page>
 
 		    </core-animated-pages>
 
@@ -45,17 +44,15 @@
 			</div>
 		</div>
 
-		<yo-http id="yoHttp"></yo-http>
-		<paper-toast id="toast" class="capsule" text="{{toastMessage}}" style="padding-right: 60px;"></paper-toast>
+		<yo-http id="yoHttp" on-http-error="{{onHttpError}}"></yo-http>
 	</template>
 	<script>
 	(function () {
-      var findMessageInex = function (messages, target) {
-        for (var index in messages) {
-          if (messages[index].id == target.id) return index;
-        }
-      };
-
+		var findMessageInex = function (messages, target) {
+			for (var index in messages) {
+			  if (messages[index].id == target.id) return index;
+			}
+		};
 		var findIndex = function (groups, targetId) {
 			for (var index in groups) {
 				var group = groups[index];
@@ -64,69 +61,137 @@
 				}
 			}
 		};
+		var isSpecialGroup = function (group) {
+			if ('LIKES' == group.id || 'LABLED' == group.id || 'DRAFT' == group.id) {
+				return true;
+			}
+		};
+		var isMessageLabled = function (message, userId) {
+			if (message.labels) {
+				for (var index in message.labels) {
+					var label = message.labels[index];
+					for (var index in label.users) {
+						if (label.users[index].id == userId) return true;
+					}
+				}
+			}
+		};
+
 		Polymer({
 			ready: function () {
-				this.curPage = 0;
+				this.drawerPage = 0;
+				this.mainPage = 0;
+				this.fancyBackground = 'http://localhost:9000/resource/gif/'
+					+ Math.floor((Math.random() * 19) + 1) + '.gif';
 
-				var search = window.location.search;
-				if (search && search.indexOf('user=') >= 0 && search.slice(search.indexOf('user=') + 5)) {
-					var user = search.slice(search.indexOf('user=') + 5);
-					this.$.yoHttp.makeRequest(this, function (scope, result) {
-						if (result) {
-							scope.user = result;
-							scope.async(function () {
-							  scope.$.mainPage.hidden = false;
+				var scope = this;
+				scope.$.yoHttp.loadUser(function (loginUser) {
+					scope.user = loginUser;
+					scope.async(function () {
+						scope.$.mainPage.hidden = false;
 
-						      var player = scope.$.loadingPage.animate([
-						        {opacity: "1.0"},
-						        {opacity: "0.0"}
-						      ], {
-						        direction: "alternate", duration: 600, fill: 'forwards'
-						      });
+						var player = scope.$.loadingPage.animate([
+								{opacity: "1.0"},
+								{opacity: "0.0"}
+							], {
+							direction: "alternate", duration: 600, fill: 'forwards'
+						});
 
-						      player.onfinish = function(e) {
-						        scope.$.loadingPage.hidden = true;
-						      };
-							}, null, 1500);
-						} else {
-							scope.toastMessage = detail.response.data;
-							scope.$.toast.show();
-						}
-					}, './api/user', 'GET', {
-						extid: user
+						player.onfinish = function(e) {
+							scope.$.loadingPage.hidden = true;
+						};
+					}, null, 1500);
+				});
+			},
+			selectedGroupChanged: function (oldValue, newValue) {
+				if (!newValue) {
+					this.drawerPage = 0;
+					this.mainPage = 0;
+				} else if (isSpecialGroup(newValue)) {
+					this.drawerPage = 0;
+					this.mainPage = 1;
+				} else {
+					this.drawerPage = 1;
+					this.mainPage = 1;
+				}
+			},
+			onMenuSelected: function (event, detail, sender) {
+				switch (detail) {
+					case 0:
+						this.selectedGroup = undefined;
+						break;
+					case 1:
+						this.selectedGroup = {
+							id: 'LIKES',
+							name: '我赞过的'
+						};
+						break;
+					case 2:
+						this.selectedGroup = {
+							id: 'LABLED',
+							name: '我标记过的'
+						};
+						break;
+					case 3:
+						this.selectedGroup = {
+							id: 'DRAFT',
+							name: '草稿箱'
+						};
+						break;
+				}
+			},
+			onMessagePageExit: function (event, detail, sender) {
+				this.selectedGroup = undefined;
+				this.drawerPage = 0;
+				this.mainPage = 0;
+			},
+			onHttpAction: function (event, detail, sender) {
+				var scope = this;
+				if (detail.action == 'create-group') {
+					scope.$.yoHttp.createGroup(this.user);
+				} else if (detail.action == 'edit-group') {
+					scope.$.yoHttp.editGroup(this.user, detail.groupId);
+				} else if (detail.action == 'delete-group') {
+					scope.$.yoHttp.deleteGroup(this.user, detail.groupId);
+				} else if (detail.action == 'laod-messages') {
+					scope.$.yoHttp.loadMessages(this.user.id, this.selectedGroup,
+						this.groupTags, detail.lastTimestamp, detail.callback);
+				} else if (detail.action == 'search-messages') {
+					scope.$.yoHttp.searchMessages(this.user.id, this.selectedGroup.id,
+						detail.searchText, detail.callback);
+				} else if (detail.action == 'like-message') {
+					scope.$.yoHttp.likeMessage(this.user, detail.message, function (message) {
+						scope.$.messageList.messageLikeChange(message);
+						detail.callback(message);
 					});
-				}
-			},
-			onSelectGroup: function (event, detail, sender) {
-				this.selectedGroup = detail;
-				this.curPage = 1;
-			},
-			onback: function (event, detail, sender) {
-				this.curPage = 0;
-			},
-			onGroupUpdate: function (event, detail, sender) {
-				var index = findIndex(this.user.groups, detail.id);
-				if (index) {
-					this.user.groups[index] = detail;
-				}
-			},
-			onGroupDelete: function (event, detail, sender) {
-				var index = findIndex(this.user.groups, detail.id);
-				if (index) {
-					this.user.groups.splice(index, 1);
-					this.curPage = 0;
+				} else if (detail.action == 'label-message') {
+					scope.$.yoHttp.labelMessage(this.user, detail.label, detail.messageId,
+						detail.callback);
+				} else if (detail.action == 'delete-message') {
+					scope.$.yoHttp.deleteMessage(this.user, detail.message, function (deletedMessage) {
+						scope.$.messageList.onMessageDeleted(deletedMessage);
+						if (!deletedMessage) {
+							return;
+						}
+						if (deletedMessage.likes.indexOf(scope.user.id) >= 0) {
+							scope.user.likeCount--;
+						}
+						if (isMessageLabled(deletedMessage, scope.user.id)) {
+							scope.user.labledCount--;
+						}
+					});
+				} else if (detail.action == 'get-group-members') {
+					scope.$.yoHttp.loadGroupMembers(this.user.id, detail.groupId, detail.callback);
+				} else if (detail.action == 'search-members') {
+					scope.$.yoHttp.searchMembers(detail.searchText, detail.callback);
+				} else if (detail.action == 'add-member') {
+					scope.$.yoHttp.addGroupMember(this.user.id, detail.groupId, detail.memberId, detail.callback);
+				} else if (detail.action == 'remove-member') {
+					scope.$.yoHttp.removeGroupMember(this.user.id, detail.groupId, detail.memberId, detail.callback);
 				}
 			},
 			onTagFilterChange: function (event, detail, sender) {
 				this.$.messageList.refreshList();
-			},
-			onMessageDeleted: function (event, detail, sender) {
-				  var targetMessages = this.$.messageList.getMessages();
-		          var index = findMessageInex(targetMessages, detail);
-		          if (index >= 0) {
-		            targetMessages.splice(index, 1);
-		          }
-				this.user.draftCount--;
 			},
 			onSendFinished: function (drift, messages, updatedGroup) {
 				if (drift.id) {
@@ -138,37 +203,6 @@
 				if (draft) {
 					this.user.draftCount++;
 				}
-			},
-			onNavLikesClicked: function (event, detail, sender) {
-				this.selectedGroup = {
-					id: 'LIKES',
-					name: '我赞过的'
-				};
-				this.curPage = 1;
-			},
-			onNavLabledClicked: function (event, detail, sender) {
-				this.selectedGroup = {
-					id: 'LABLED',
-					name: '我标记过的'
-				};
-				this.curPage = 1;
-			},
-			onNavDraftClicked: function (event ,detail, sender) {
-				this.selectedGroup = {
-					id: 'DRAFT',
-					name: '草稿箱'
-				};
-				this.curPage = 1;
-			},
-			onLikeChanged: function (event, detail ,sender) {
-				if (detail == 'true') {
-					this.user.likeCount++;
-				} else if (detail == 'false') {
-					this.user.likeCount--;
-				}
-			},
-			onNewLabel: function (event, detail ,sender) {
-				this.user.labledCount++;
 			},
 			getGroup: function (grouId) {
 				for (var index in this.user.groups) {

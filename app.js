@@ -15,19 +15,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use('/api', require(path.join(__dirname, 'server', 'api.js')));
 app.use('/neiwai', require(path.join(__dirname, 'server', 'neiwai.js')));
-app.use('/bower_components',  express.static(path.join(__dirname, 'webapp', 'bower_components')));
 app.use('/resource', express.static(path.join(__dirname, 'resource')));
 app.use('/', express.static(path.join(__dirname, 'webapp')));
 
 app.get('/', function(req, res){
 	res.sendFile(path.join(__dirname, 'webapp', 'index.html'));
-});
-
-app.get('/*', function (req, res, next) {
-	console.log(req.url);
-	res.json({
-		data: req.url
-	})
 });
 
 // catch 404 and forward to error handler

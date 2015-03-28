@@ -1,0 +1,169 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/core-menu/core-menu.html">
+<link rel="import" href="../../../components/core-tooltip/core-tooltip.html">
+<link rel="import" href="../../../components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../../../components/paper-button/paper-button.html">
+<link rel="import" href="../../../components/paper-ripple/paper-ripple.html">
+<link rel="import" href="../../../components/paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../../../components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../../components/paper-dropdown/paper-dropdown.html">
+
+<polymer-element name="yo-message-item" attributes="message userId itemIndex selectIndex draftItem">
+	<template layout vertical>
+		<link rel="stylesheet" href="yo-message-item.css">
+
+	      <div layout horizontal center class="title">
+	        <template repeat="{{tag in message.tags}}">
+	          <paper-button class="tag-button">{{tag}}</paper-button>
+	        </template>
+	        <div flex></div>
+	        <div class="date">{{message.date}}</div>
+	        <core-tooltip label="{{likeTips}}" class="fancy">
+		        <paper-icon-button class="{{faveriteClass}}" icon="thumb-up"
+		        	on-click="{{toggleLikeMessage}}" hidden?="{{draftItem}}"></paper-icon-button>
+	        </core-tooltip>
+			<paper-menu-button hidden?="{{message.userId != userId}}">
+				<paper-icon-button icon="more-vert"></paper-icon-button>
+				<paper-dropdown class="dropdown" halign="right" transition="">
+					<paper-item on-click="{{deleteMessage}}">
+						<core-icon icon="clear" style="color: red; margin-right: 10px;"></core-icon>
+						删除
+					</paper-item>
+				</paper-dropdown>
+			</paper-menu-button>
+	      </div>
+	      <div id="rawContent" layout vertical flex class="{{message.senderName ? 'content' : 'content-pointer'}}"
+	      	on-click="{{messageClicked}}">
+	      	
+	      </div>
+	      <div class="label-container" layout horizontal center hidden?="{{draftItem}}">
+	      	<div layout horizontal center wrap flex>
+		      	<template repeat="{{label in message.labels}}">
+		          <core-tooltip class="fancy">
+				        <paper-button class="message-label" on-click="{{onLabelClicked}}">
+				      		{{label.name + (label.users.length > 0 ? ('(' + label.users.length + ')') : '')}}
+				        </paper-button>
+			            <div tip>
+			            	<div layout horizontal center hidden?="{{label.liked}}">
+			            		<core-icon icon="loyalty"></core-icon>
+			              		有同感，那就赞一下吧！
+			            	</div>
+			            	<div class="likes-popup" layout vertical hidden?="{{!label.liked}}">
+			            		<template repeat="{{user in label.users}}">
+			            			<div layout horizontal center>
+			            				<div class="middle avatar" style="background-image: url({{user.header}})"></div>
+			            				{{user.name}}
+			            			</div>
+			            		</template>
+			            	</div>
+			            </div>
+		          </core-tooltip>
+		      	</template>
+		      	<div layout horizontal center>
+		      		<paper-input class="custom" value="{{newLabel}}" hidden?="{{itemIndex != selectIndex}}"></paper-input>
+		      		<core-tooltip label="添加标签" class="fancy">
+		      		<paper-icon-button icon="add" on-click="{{onNewLabelClicked}}"></paper-icon-button>
+		      		</core-tooltip>
+		      	</div>
+	      	</div>
+	      	<paper-button class="more-button" on-click="{{onMoreClicked}}" hidden?="{{!showMoreBtn}}">More..</paper-button>
+	      </div>
+	</template>
+	<script>
+		(function() {
+			var findUser = function (users, targetId) {
+				if (users) {
+					for (var index in users) {
+						if (users[index].id == targetId) return users[index];
+					}
+				}
+			};
+		    var labelMessage = function (scope, labelText) {
+		    	scope.fire('http-action', {
+		    		action: 'label-message',
+		    		label: labelText,
+		    		messageId: scope.message.id,
+		    		callback: function (updatedMessage) {
+		    			scope.message = updatedMessage;
+						scope.newLabel = '';
+						scope.selectIndex = -1;
+		    		}
+		    	})
+		    };
+
+			Polymer({
+				ready: function () {
+					this.currentLabelIndex = -1;
+					this.injectBoundHTML(this.message.html, this.$.rawContent);
+				},
+				domReady: function () {
+					this.async(function () {
+						if (this.$.rawContent.clientHeight != this.$.rawContent.scrollHeight) {
+							this.showMoreBtn = true;
+						} else {
+							this.showMoreBtn = false;
+						}
+					}, null, 200);
+				},
+				messageChanged: function (oldValue, newValue) {
+					if (newValue && (!oldValue || oldValue.likes != newValue.likes)) {
+						this.likeTips = (!newValue.likes || newValue.likes.indexOf(this.userId) < 0) ? '赞一个！' : '手抖了，对不起';
+						this.faveriteClass = (newValue.likes && newValue.likes.indexOf(this.userId) >= 0) ? 'red' : 'gray';
+					}
+				},
+				toggleLikeMessage: function (event) {
+					if (this.likeChanging) return;
+
+					var scope = this;
+					scope.likeChanging = true;
+					this.fire('http-action', {
+						action: 'like-message',
+						message: this.message,
+						callback: function (updatedMessage) {
+							scope.likeChanging = false;
+							if (updatedMessage) {
+								scope.message = updatedMessage;
+							}
+						}
+					})
+				},
+				onNewLabelClicked: function (event, detail, sender) {
+					if (this.selectIndex != this.itemIndex) {
+						this.selectIndex = this.itemIndex
+					} else {
+						if (this.newLabel && this.newLabel.length > 0) {
+							labelMessage(this, this.newLabel);
+						} else {
+							this.selectIndex = -1;
+						}
+					}
+				},
+				onLabelClicked: function (event, detail, sender) {
+					var label = event.target.templateInstance.model.label;
+					if (!findUser(label.users, this.userId)) {
+						labelMessage(this, label.name);
+					}
+				},
+				messageClicked: function (event, detail, sender) {
+					if (!this.message.senderName) {
+						var editorContainer = document.getElementById('editor-container');
+	        			editorContainer.showEditor(this.message);
+					}
+				},
+				deleteMessage: function (event, detail, sender) {
+					this.fire('http-action', {
+						action: 'delete-message',
+						message: this.message
+					});
+				},
+				onMoreClicked: function (event, detail, sender) {
+					this.showMoreBtn = false;
+					this.$.rawContent.style.maxHeight = 'none';
+				}
+			});
+		})();
+	</script>
+</polymer-element>

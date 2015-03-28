@@ -1,0 +1,74 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+<link rel="import" href="../../../components/paper-ripple/paper-ripple.html">
+<link rel="import" href="../../../components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../../components/paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../../../components/paper-dropdown/paper-dropdown.html">
+
+<polymer-element name="yo-group-page" attributes="groups selectedGroup">
+	<template>
+		<link rel="stylesheet" href="yo-group-page.css">
+
+		<div class="group-container" horizontal wrap layout>
+		    <paper-shadow class="group-card create-card" z="1" on-click="{{onCreateGroup}}">
+			    <div vertical layout center center-justified fit>
+			    	<core-icon class="card-icon" icon="add-circle-outline"></core-icon>
+			    	创建群笔记
+			    </div>
+			    <paper-ripple fit></paper-ripple>
+		    </paper-shadow>
+			<template repeat="{{group in groups}}">
+			    <paper-shadow class="group-card" z="1"
+			    	hero-id="group-{{group.id}}" hero?="{{selectedGroup.id == group.id}}">
+				    <div layout vertical cross-fade fit>
+						<div class="card-title" horizontal layout center>
+							<div flex>{{group.name}}</div>
+							<paper-menu-button hidden?="{{message.userId != userId}}">
+								<paper-icon-button icon="more-vert"></paper-icon-button>
+								<paper-dropdown class="dropdown" halign="right" transition="">
+									<paper-item on-click="{{onDeleteGroup}}">
+										<core-icon icon="clear" style="color: red; margin-right: 10px;"></core-icon>
+										删除
+									</paper-item>
+								</paper-dropdown>
+							</paper-menu-button>
+						</div>
+						<div class="card-content" on-click="{{onSelectGroup}}" layout vertical flex>
+							<div layout vertical flex style="border-bottom: 1px dotted #ddd;">
+								<p flex class="testOverflow">{{group.recents[0].text}}</p>
+								<div class="cardDate" self-end>{{group.recents[0].date}}</div>
+							</div>
+							<div layout vertical flex>
+								<p flex class="testOverflow">{{group.recents[1].text}}</p>
+								<div class="cardDate" self-end>{{group.recents[1].date}}</div>
+							</div>
+							<paper-ripple fit></paper-ripple>
+						</div>
+				    </div>
+			    </paper-shadow>
+			</template>
+		</div>
+	</template>
+	<script>
+	(function() {
+		Polymer({
+			onSelectGroup: function (event, detail, sender) {
+				this.selectedGroup = event.target.templateInstance.model.group;
+			},
+			onCreateGroup: function (event, detail, sender) {
+				this.fire('http-action', {
+					action: 'create-group'
+				});
+			},
+			onDeleteGroup: function (event, detail, sender) {
+				this.fire('http-action', {
+					action: 'delete-group',
+					groupId: event.target.templateInstance.model.group.id
+				})
+			}
+		});
+	})();
+	</script>
+</polymer-element>

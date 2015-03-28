@@ -1,0 +1,65 @@
+<link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-header-panel/core-header-panel.html">
+<link rel="import" href="../../../components/core-toolbar/core-toolbar.html">
+<link rel="import" href="../../../components/core-icon/core-icon.html">
+<link rel="import" href="../../../components/core-signals/core-signals.html">
+<link rel="import" href="../../../components/core-selector/core-selector.html">
+<link rel="import" href="../../../components/paper-item/paper-item.html">
+<link rel="import" href="../../../components/paper-shadow/paper-shadow.html">
+
+<polymer-element name="yo-main-drawer" attributes="user fancyBackground">
+	<template>
+		<link rel="stylesheet" href="yo-main-drawer.css">
+
+		<core-header-panel fit fixed>
+		    <div layout vertical>
+			    <div class="drawer-title">
+			    	<img src="{{fancyBackground}}" style="max-width: 256px; max-height: 192px;">
+			    	<div layout horizontal center fit>
+			    		<div class="user-header" style="background-image: url({{user.header}})"></div>
+			    		<div layout vertical>
+			    			<div class="title-subject">{{user.name}}</div>
+			    			<div class="title-description">{{user.description}}</div>
+			    		</div>
+			    	</div>
+			    </div>
+			    <core-selector class="list" selected="0">
+			    	<template repeat="{{menu, index in menus}}">
+				        <paper-item on-click="{{onMenuClicked}}">
+				        	<core-icon icon="{{menu.icon}}"></core-icon>
+				        	<div class="menu-text" flex>{{menu.name}}</div>
+				        	{{menu.count > 0 ? menu.count : ''}}
+				        </paper-item>			    		
+			    	</template>
+		        </core-selector>
+		    </div>
+	    </core-header-panel>
+
+	    <core-signals on-core-signal-user-changed="{{onUserUpdated}}"></core-signals>
+	</template>
+	<script>
+	(function() {
+		Polymer({
+			ready: function () {
+				this.menus = [
+					{name: '我的小组', icon: 'apps', count: 0},
+					{name: '我赞过的', icon: 'thumb-up', count: 0},
+					{name: '我标记过的', icon: 'loyalty', count: 0},
+					{name: '草稿', icon: 'drafts', count: 0}
+				];
+			},
+			onUserUpdated: function (event, detail, sender) {
+				if (!this.user) return;
+
+				this.menus[0].count = this.user.groups.length;
+				this.menus[1].count = this.user.likeCount;
+				this.menus[2].count = this.user.labledCount;
+				this.menus[3].count = this.user.draftCount;
+			},
+			onMenuClicked: function (event, detail, sender) {
+				this.fire('menu-clicked', event.target.templateInstance.model.index);
+			}
+		});
+	})();
+	</script>
+</polymer-element>

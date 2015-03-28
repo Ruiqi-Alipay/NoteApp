@@ -68,17 +68,6 @@ module.exports = {
 			return next();
 		});
 	},
-	messageId: function (req, res, next, id) {
-		if (!req.group) return next(new Error('Group not found!'));
-
-		Message.findById(id, function (err, message) {
-			if (!err && message.groupId == req.group._id) {
-				req.message = message;
-			}
-
-			return next();
-		});
-	},
 	createGroup: function (req, res, next) {
 		if (!req.body.name || req.body.name.length == 0) return res.json({
 			success: false,
