@@ -112,14 +112,37 @@ module.exports = {
 			});
 		});
 	},
+	editMessage: function (req, res, next) {
+		if (!req.message) return res.json({
+			success: false,
+			data: '无效的笔记'
+		});
+		if (!req.body.userid || req.body.userid != req.message.userId) return res.json({
+			success: false,
+			data: '你没有权限这样做'
+		});
+
+		req.message.html = req.body.html;
+		req.message.text = req.body.text;
+		req.message.save(function (err, message) {
+			if (err) return res.json({
+				success: false,
+				data: '更新失败'
+			});
+
+			utils.createClientMessageBatch([message], req.body.userid, function (clientMessages) {
+				res.json({
+					success: true,
+					data: clientMessages
+				})
+			});
+		});
+	},
 	deleteMessage: function (req, res, next) {
 		if (!req.message) return res.json({
 			success: false,
 			data: '无效的笔记'
 		});
-
-			console.log(req.body);
-
 		if (!req.body.userid || req.body.userid != req.message.userId) return res.json({
 			success: false,
 			data: '你没有权限这样做'

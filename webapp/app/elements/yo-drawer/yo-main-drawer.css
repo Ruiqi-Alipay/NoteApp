@@ -1,7 +1,14 @@
 .drawer-title {
-    color: white;
     position: relative;
     height: 192px;
+}
+
+.dark {
+    color: white;
+}
+
+.light {
+    color: black;
 }
 
 .user-header {

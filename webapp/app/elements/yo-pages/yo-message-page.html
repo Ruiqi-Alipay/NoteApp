@@ -226,6 +226,18 @@
               this.messages.splice(index, 1);
             }
           }
+        },
+        onSaveDraftFinished: function (draft) {
+          var index = findMessageInex(this.messages, draft);
+          if (index >= 0) {
+            this.messages[index] = draft;
+          }
+        },
+        onEditFinished: function (message) {
+          var index = findMessageInex(this.messages, message);
+          if (index >= 0) {
+            this.messages[index] = message;
+          }
         }
       });
     })();

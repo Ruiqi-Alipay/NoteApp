@@ -28,6 +28,10 @@
 			<paper-menu-button hidden?="{{message.userId != userId}}">
 				<paper-icon-button icon="more-vert"></paper-icon-button>
 				<paper-dropdown class="dropdown" halign="right" transition="">
+					<paper-item on-click="{{editMessage}}">
+						<core-icon icon="create" style="margin-right: 10px;"></core-icon>
+						编辑
+					</paper-item>
 					<paper-item on-click="{{deleteMessage}}">
 						<core-icon icon="clear" style="color: red; margin-right: 10px;"></core-icon>
 						删除
@@ -158,6 +162,10 @@
 						action: 'delete-message',
 						message: this.message
 					});
+				},
+				editMessage: function (event, detail, sender) {
+					var editorContainer = document.getElementById('editor-container');
+        			editorContainer.showEditor(this.message);
 				},
 				onMoreClicked: function (event, detail, sender) {
 					this.showMoreBtn = false;

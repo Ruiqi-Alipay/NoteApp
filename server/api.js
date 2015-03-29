@@ -34,6 +34,7 @@ router.get('/group/:groupId/message/contentsearch', groupApi.searchContent);
 router.param('messageId', messageApi.messageId);
 router.get('/message/like/:userid', messageApi.likeMessage);
 router.get('/message/label/:userid', messageApi.labelMessage);
+router.post('/message/:messageId', messageApi.editMessage)
 router.delete('/message/:messageId', messageApi.deleteMessage)
 
 module.exports = router;

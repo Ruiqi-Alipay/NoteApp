@@ -18,10 +18,11 @@
 			<paper-shadow drawer flex z="2" style="height: 100%;">
 				<core-animated-pages selected="{{drawerPage}}" transitions="cross-fade-all" style="height: 100%;" flex>
 					<yo-main-drawer user="{{user}}" on-menu-clicked="{{onMenuSelected}}"
-						fancyBackground="{{fancyBackground}}"></yo-main-drawer>
+						fancyBackground="{{fancyBackground}}" topLeftClass="{{topLeftClass}}"></yo-main-drawer>
 					<yo-group-drawer selectedGroup="{{selectedGroup}}" groupTags="{{groupTags}}"
 						userId="{{user.id}}" on-tag-checked-change="{{onTagFilterChange}}"
-						on-http-action="{{onHttpAction}}" fancyBackground="{{fancyBackground}}"></yo-group-drawer>
+						on-http-action="{{onHttpAction}}" staticBackground="{{staticBackground}}"
+						topLeftClass="{{topLeftClass}}"></yo-group-drawer>
 				</core-animated-pages>
 			</paper-shadow>
 
@@ -81,8 +82,15 @@
 			ready: function () {
 				this.drawerPage = 0;
 				this.mainPage = 0;
-				this.fancyBackground = 'http://localhost:9000/resource/gif/'
-					+ Math.floor((Math.random() * 19) + 1) + '.gif';
+				if (Math.floor((Math.random() * 2) + 1) == 1) {
+					this.topLeftClass = 'dark';
+				} else {
+					this.topLeftClass = 'light';
+				}
+				this.fancyBackground = 'http://localhost:9000/resource/gif/' + this.topLeftClass + '/'
+					+ Math.floor((Math.random() * 12) + 1) + '.gif';
+				this.staticBackground = 'http://localhost:9000/resource/jpg/' + this.topLeftClass + '/'
+					+ Math.floor((Math.random() * 12) + 1) + '.jpg';
 
 				var scope = this;
 				scope.$.yoHttp.loadUser(function (loginUser) {
@@ -141,9 +149,11 @@
 				}
 			},
 			onMessagePageExit: function (event, detail, sender) {
-				this.selectedGroup = undefined;
 				this.drawerPage = 0;
 				this.mainPage = 0;
+				this.async(function () {
+					this.selectedGroup = undefined;
+				}, null, 300);
 			},
 			onHttpAction: function (event, detail, sender) {
 				var scope = this;
@@ -198,11 +208,14 @@
 					this.user.draftCount--;
 				}
 				this.$.messageList.onSendFinished(drift, messages, updatedGroup);
+				this.fire('core-signal', {name: 'user-changed'});
 			},
-			onSaveDraftFinished: function (draft) {
-				if (draft) {
+			onSaveDraftFinished: function (draft, newFraft) {
+				if (newFraft) {
 					this.user.draftCount++;
 				}
+				this.$.messageList.onSaveDraftFinished(draft);
+				this.fire('core-signal', {name: 'user-changed'});
 			},
 			getGroup: function (grouId) {
 				for (var index in this.user.groups) {
@@ -211,7 +224,10 @@
 						return group;
 					}
 				}
-			}
+			},
+	        onEditFinished: function (message) {
+	        	this.$.messageList.onEditFinished(message);
+	        }
 		});
 	})();
 	</script>

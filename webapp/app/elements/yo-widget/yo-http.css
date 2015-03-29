@@ -15,7 +15,7 @@
   color: #f4b400;
 }
 
-.custom /deep/ .unfocused-underline {
+.custom .unfocused-underline {
   background-color: #f4b400;
 }
 
@@ -23,7 +23,7 @@
   color: #0f9d58;
 }
 
-.custom /deep/ .focused-underline {
+.custom .focused-underline {
   background-color: #0f9d58;
 }
 

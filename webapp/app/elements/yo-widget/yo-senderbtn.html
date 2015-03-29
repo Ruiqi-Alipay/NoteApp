@@ -1,4 +1,5 @@
 <link rel="import" href="../../../components/polymer/polymer.html">
+<link rel="import" href="../../../components/core-signals/core-signals.html">
 <link rel="import" href="../../../components/paper-fab/paper-fab.html">
 <link rel="import" href="../../../components/paper-spinner/paper-spinner.html">
 <link rel="import" href="../../../components/paper-toast/paper-toast.html">
@@ -7,8 +8,12 @@
 	<template layout horizontal end>
 		<link rel="stylesheet" href="yo-senderbtn.css">
 		<paper-spinner active?="{{sending}}"></paper-spinner>
-		<paper-fab icon="send" class="editFab green" title="发送"
+		<paper-fab icon="{{draft.senderName ? 'create' : 'send'}}" class="editFab green" title="发送"
 			on-click="{{sendMessage}}" hidden?="{{sending}}"></paper-fab>
+		<core-signals on-core-signal-send-finished="{{onSendFinished}}"
+			on-core-signal-draft-finished="{{onDraftFinished}}"
+			on-core-signal-edit-finished="{{onEditFinished}}"
+			on-core-signal-draft-canceled="{{onDraftCanceled}}"></core-signals>
 	</template>
 	<script>
 	(function () {
@@ -17,10 +22,6 @@
 				this.sending = false;
 			},
 			sendMessage: function () {
-				this.sending = true;
-				var tagbar = document.getElementById('yo-tagbar');
-				var useTags = tagbar.getSelectedTags();
-
 				var html = quill.getHTML();
 				var text = quill.getText();
 
@@ -30,46 +31,71 @@
 					return;
 				}
 
-				this.$.yoHttp.makeRequest(this, function (scope, messages, updatedGroup) {
-					scope.sending = false;
-					toggleEditor(false);
-					document.getElementById('yo-app').onSendFinished(scope.draft, messages, updatedGroup);
-				}, './api/group/' + this.draft.groupId + '/message', 'POST', undefined, {
-					userid: this.draft.userId,
-					text: text,
-					html: html,
-					tags: useTags,
-					draftId: this.draft.id
-				}, 'application/json');
-			},
-			createDrift: function (text, html) {
-				this.driftText = text;
-				this.driftHtml = html;
-				if (this.draft.id) {
-					this.$.confirmDialog.subject = '更新草稿？';
-				} else {
-					this.$.confirmDialog.subject = '是否保存到草稿？';
-				}
-				this.$.confirmDialog.showDialog(false);
-			},
-    		onActionConfirm: function () {
+				this.sending = true;
 				var tagbar = document.getElementById('yo-tagbar');
 				var useTags = tagbar.getSelectedTags();
 
-				this.$.yoHttp.makeRequest(this, function (scope, draft) {
-					scope.$.confirmDialog.closeDialog();
-					toggleEditor(false);
-					document.getElementById('yo-app').onSaveDraftFinished(draft);
-				}, './api/user/' + this.draft.userId + '/draft' + (this.draft.id ? '/' + this.draft.id : ''), 'POST', undefined, {
-					text: this.driftText,
-					html: this.driftHtml,
-					groupId: this.draft.groupId,
-					tags: useTags
-				}, 'application/json');      
+				if (this.draft.senderName) {
+					this.fire('core-signal', {
+						name: 'edit-message',
+						data: {
+							userid: this.draft.userId,
+							text: text,
+							html: html,
+							useTags: useTags,
+							messageId: this.draft.id
+						}
+					});
+				} else {
+					this.fire('core-signal', {
+						name: 'send-message',
+						data: {
+							userId: this.draft.userId,
+							text: text,
+							html: html,
+							useTags: useTags,
+							groupId: this.draft.groupId,
+							draftId: this.draft.id
+						}
+					});
+				}
+			},
+			onSendFinished: function (event, detail, sender) {
+				this.sending = false;
+				toggleEditor(false);
+				document.getElementById('yo-app').onSendFinished(this.draft, detail.messages, detail.group);
     		},
-    		onActionCanceled: function () {
-      			toggleEditor(false);
-    		}
+    		onEditFinished: function (event, detail, sender) {
+				this.sending = false;
+				toggleEditor(false);
+				document.getElementById('yo-app').onEditFinished(detail);
+    		},
+			createDrift: function (text, html) {
+				var tagbar = document.getElementById('yo-tagbar');
+				var useTags = tagbar.getSelectedTags();
+				var html = quill.getHTML();
+				var text = quill.getText();
+				this.newFraft = this.draft.id ? false : true;
+
+				this.fire('core-signal', {
+					name: 'send-draft',
+					data: {
+						userId: this.draft.userId,
+						text: text,
+						html: html,
+						useTags: useTags,
+						groupId: this.draft.groupId,
+						draftId: this.draft.id
+					}
+				});
+			},
+		    onDraftFinished: function (event, detail, sender) {
+				toggleEditor(false);
+				document.getElementById('yo-app').onSaveDraftFinished(detail, this.newFraft);
+		    },
+		    onDraftCanceled: function (event, detail, sender) {
+		    	toggleEditor(false);
+		    }
 		});
 	})();
 	</script>

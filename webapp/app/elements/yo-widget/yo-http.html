@@ -1,5 +1,6 @@
 <link rel="import" href="../../../components/polymer/polymer.html">
 <link rel="import" href="../../../components/core-ajax/core-ajax.html">
+<link rel="import" href="../../../components/core-signals/core-signals.html">
 <link rel="import" href="../../../components/paper-input/paper-input.html">
 <link rel="import" href="../../../components/paper-button/paper-button.html">
 <link rel="import" href="../../../components/paper-spinner/paper-spinner.html">
@@ -9,8 +10,8 @@
 <polymer-element name="yo-http">
 	<template>
 		<link rel="stylesheet" href="yo-http.css">
-	    <paper-action-dialog id="dialog" heading="{{subject}}" transition="core-transition-center" style="width: 600px;">
-			<paper-input-decorator class="custom" label="群名称" floatingLabel error="请输入群组名称!" hidden?="{{!editor}}" autoValidate>
+	    <paper-action-dialog id="dialog" class="custom" heading="{{subject}}" transition="core-transition-center" style="width: 600px;">
+			<paper-input-decorator label="群名称" floatingLabel error="请输入群组名称!" hidden?="{{!editor}}" autoValidate>
 			  	<input is="core-input" value="{{groupName}}" disabled?="{{busy}}" required>
 			</paper-input-decorator>
 
@@ -23,6 +24,9 @@
 		<paper-toast id="toast" class="capsule" text="{{toastMessage}}"
 			style="padding-right: 60px;"></paper-toast>
 		<core-ajax id="ajax" handleAs="json"></core-ajax>
+		<core-signals on-core-signal-send-message="{{onSendMessage}}"
+			on-core-signal-send-draft="{{onSendDraft}}"
+			on-core-signal-edit-message="{{onEditMessage}}"></core-signals>
 	</template>
 	<script>
 	(function () {
@@ -84,6 +88,9 @@
 		};
 
 		Polymer({
+			cancelDialog: function (event, detail, sender) {
+				this.$.dialog.close();
+			},
 			loadUser: function (successCallback) {
 				var search = window.location.search;
 				if (!search || search.indexOf('user=') < 0) {
@@ -315,20 +322,98 @@
 				});
 		    },
 		    deleteMessage: function (user, message, callback) {
-		    	if (message.senderName) {
-					makeRequest(this, function (scope, message) {
-						var deletedMessage = message ? message[0] : undefined;
-						callback(deletedMessage);
-						scope.fire('core-signal', {name: 'user-changed'});
-					}, './api/message/' + message.id, 'DELETE', undefined, {
-						userid: user.id
-					}, 'application/json');
-		    	} else {
-					makeRequest(this, function (scope, message) {
-						callback(message ? message[0] : undefined);
-						user.draftCount--;
-					}, './api/user/' + user.id + '/draft/' + message.id, 'DELETE');
-		    	}	
+				this.subject = '删除改笔记？';
+				this.editor = false;
+				this.onConfirm = function () {
+					this.busy = true;
+			    	if (message.senderName) {
+						makeRequest(this, function (scope, message) {
+							this.busy = false;
+							this.$.dialog.close();
+							var deletedMessage = message ? message[0] : undefined;
+							callback(deletedMessage);
+							scope.fire('core-signal', {name: 'user-changed'});
+						}, './api/message/' + message.id, 'DELETE', undefined, {
+							userid: user.id
+						}, 'application/json');
+			    	} else {
+						makeRequest(this, function (scope, message) {
+							this.busy = false;
+							this.$.dialog.close();
+							callback(message ? message[0] : undefined);
+							user.draftCount--;
+						}, './api/user/' + user.id + '/draft/' + message.id, 'DELETE');
+			    	}
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+				}
+				this.$.dialog.open();	
+		    },
+		    onSendMessage: function (event, detail, sender) {
+				var useTags = detail.useTags;
+				var html = detail.html;
+				var text = detail.text;
+
+				makeRequest(this, function (scope, messages, updatedGroup) {
+					scope.fire('core-signal', {
+						name: 'send-finished',
+						data: {
+							group: updatedGroup,
+							messages: messages
+						}
+					});
+				}, './api/group/' + detail.groupId + '/message', 'POST', undefined, {
+					userid: detail.userId,
+					text: detail.text,
+					html: detail.html,
+					tags: detail.useTags,
+					draftId: detail.draftId
+				}, 'application/json');
+		    },
+		    onSendDraft: function (event, detail, sender) {
+				if (detail.draftId) {
+					this.subject = '更新草稿？';
+				} else {
+					this.subject = '是否保存到草稿？';
+				}
+				this.editor = false;
+				this.onConfirm = function () {
+					this.busy = true;
+					makeRequest(this, function (scope, draft) {
+						scope.busy = false;
+						scope.$.dialog.close();
+						scope.fire('core-signal', {
+							name: 'draft-finished',
+							data: draft
+						});
+					}, './api/user/' + detail.userId + '/draft' + (detail.draftId ? '/' + detail.draftId : ''), 'POST', undefined, {
+						text: detail.text,
+						html: detail.html,
+						groupId: detail.groupId,
+						tags: detail.useTags
+					}, 'application/json'); 
+				};
+				this.onCancel = function () {
+					this.$.dialog.close();
+					this.fire('core-signal', {
+						name: 'draft-canceled'
+					});
+				}
+				this.$.dialog.open();
+		    },
+		    onEditMessage: function (event, detail, sender) {
+				makeRequest(this, function (scope, message) {
+					scope.fire('core-signal', {
+						name: 'edit-finished',
+						data: message ? message[0] : undefined
+					});
+				}, './api/message/' + detail.messageId, 'POST', undefined, {
+					text: detail.text,
+					html: detail.html,
+					userid: detail.userid,
+					tags: detail.useTags
+				}, 'application/json'); 
 		    }
 		});
 	})();

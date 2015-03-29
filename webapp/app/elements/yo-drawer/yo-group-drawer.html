@@ -7,14 +7,14 @@
 <link rel="import" href="../../../components/paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../../../components/paper-tabs/paper-tabs.html">
 
-<polymer-element name="yo-group-drawer" attributes="selectedGroup userId groupTags fancyBackground">
+<polymer-element name="yo-group-drawer" attributes="selectedGroup userId groupTags staticBackground topLeftClass">
 	<template>
 		<link rel="stylesheet" href="yo-group-drawer.css">
 
 		<core-header-panel fit fixed>
 		    <div layout vertical>
-			    <div class="drawer-title">
-			    	<img src="{{fancyBackground}}" style="max-width: 256px; max-height: 192px;">
+			    <div class="drawer-title {{topLeftClass}}">
+			    	<img src="{{staticBackground}}" style="max-width: 256px; max-height: 192px;">
 			    	<div layout horizontal center fit>
 			    		<div class="user-header" style="background-image: url({{user.header}})"></div>
 			    		<div layout vertical>
