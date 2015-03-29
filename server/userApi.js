@@ -6,6 +6,7 @@ var Draft = require(path.join(__dirname, '..', 'mongo', 'draft.js'));
 var utils = require('./utils.js');
 var moment = require('moment');
 var q = require('q');
+var os = require("os");
 
 var userCheck = function (req, res) {
 	if (!req.user) {
@@ -93,25 +94,48 @@ module.exports = {
 		});
 
 		User.findOne({'extId': extid}, function (err, user) {
-			if (err || !user) return next(new Error('User not found!'));
-
-			prepareUserGroups(user._id.toString()).then(function (result) {
-				var clientUser = utils.createClientUser(user);
-				clientUser.groups = result.groups;
-				clientUser.likeCount = result.likeCount;
-				clientUser.labledCount = result.labledCount;
-				clientUser.draftCount = result.draftCount;
-
-				res.json({
-					success: true,
-					data: clientUser
+			if (!user) {
+				var user = new User({
+					name: '测试用户名',
+					description: '测试职位描述',
+					extId: extid,
+					header: 'http://' + req.headers.host + '/resource/default.jpg'
 				});
-			}).catch(function (err) {
-				res.json({
-					success: false,
-					data: '同步用户群组出错：' + err.toString()
-				})
-			});
+				user.save(function (err, newUser) {
+					if (err) return res.json({
+						success: false
+					});
+
+					var clientUser = utils.createClientUser(newUser);
+					clientUser.groups = [];
+					clientUser.likeCount = 0;
+					clientUser.labledCount = 0;
+					clientUser.draftCount = 0;
+
+					res.json({
+						success: true,
+						data: clientUser
+					});
+				});
+			} else {
+				prepareUserGroups(user._id.toString()).then(function (result) {
+					var clientUser = utils.createClientUser(user);
+					clientUser.groups = result.groups;
+					clientUser.likeCount = result.likeCount;
+					clientUser.labledCount = result.labledCount;
+					clientUser.draftCount = result.draftCount;
+
+					res.json({
+						success: true,
+						data: clientUser
+					});
+				}).catch(function (err) {
+					res.json({
+						success: false,
+						data: '同步用户群组出错：' + err.toString()
+					})
+				});
+			}
 		});
 	},
 	searchUser: function (req, res, next) {
