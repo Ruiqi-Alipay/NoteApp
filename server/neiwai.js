@@ -52,11 +52,13 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 				+ '&workCardNamespace=' + workCardNamespace
 				+ '&workCardUserId=' + workCardUserId
 				+ '&emplid=' + workCardUserId;
-		console.log(url);
+		console.log('11');
+		console.log(user);
 		request.get(url,
 			function (err, httpResponse, body) {
 				var userInfo = body && body.content ? body.content : undefined;
-
+				console.log('22');
+		console.log(user);
 				if (!user) {
 					var user = new User({
 						name: userInfo && userInfo.nick ? userInfo.nick : workCardUserId,
