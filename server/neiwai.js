@@ -52,6 +52,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 				+ '&workCardNamespace=' + workCardNamespace
 				+ '&workCardUserId=' + workCardUserId
 				+ '&emplid=' + workCardUserId;
+		console.log(url);
 		request.get(url,
 			function (err, httpResponse, body) {
 				var userInfo = body && body.content ? body.content : undefined;
@@ -64,6 +65,8 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 						header: userInfo && userInfo.headPath ? ('https://work.alibaba-inc.com' + userInfo.headPath)
 							: path.join(os.hostname(), 'resource', 'default.jpg')
 					});
+					console.log('SAVE USER:');
+					console.log(user);
 					user.save(function (err, newUser) {
 						if (err) return res.json({
 							success: false
@@ -74,6 +77,12 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 							user: newUser,
 							notes: []
 						});
+						console.log('RETURN');
+						console.log({
+							success: true,
+							user: newUser,
+							notes: []
+						})
 					});
 				} else {
 					var userChanged = false;
@@ -91,6 +100,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 					}
 
 					if (userChanged) {
+						console.log('UPDATE USER:');
 						user.save(function (err, newUser) {
 							findLatestMessages(newUser, function (notes) {
 								res.json({
@@ -98,11 +108,24 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 									user: newUser,
 									notes: notes
 								});
+								console.log('RETURN');
+								console.log({
+									success: true,
+									user: newUser,
+									notes: notes
+								});
 							});
 						});
 					} else {
+						console.log('UNCHANGE USER:');
 						findLatestMessages(user, function (notes) {
 							res.json({
+								success: true,
+								user: user,
+								notes: notes
+							});
+							console.log('RETURN');
+							console.log({
 								success: true,
 								user: user,
 								notes: notes
