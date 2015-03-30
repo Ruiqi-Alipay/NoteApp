@@ -18,7 +18,7 @@
 			<paper-shadow drawer flex z="2" style="height: 100%;">
 				<core-animated-pages selected="{{drawerPage}}" transitions="cross-fade-all" style="height: 100%;" flex>
 					<yo-main-drawer user="{{user}}" on-menu-clicked="{{onMenuSelected}}"
-						fancyBackground="{{fancyBackground}}" topLeftClass="{{topLeftClass}}"></yo-main-drawer>
+						fancyBackground="{{staticBackground}}" topLeftClass="{{topLeftClass}}"></yo-main-drawer>
 					<yo-group-drawer selectedGroup="{{selectedGroup}}" groupTags="{{groupTags}}"
 						userId="{{user.id}}" on-tag-checked-change="{{onTagFilterChange}}"
 						on-http-action="{{onHttpAction}}" staticBackground="{{staticBackground}}"
