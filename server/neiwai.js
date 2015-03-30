@@ -46,97 +46,92 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 		success: false
 	});
 
-	User.findOne({'extId': workCardUserId}, function (err, user) {
-		var url = 'https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
-				+ 'workCardAppToken=' + workCardAppToken
-				+ '&workCardNamespace=' + workCardNamespace
-				+ '&workCardUserId=' + workCardUserId
-				+ '&emplid=' + workCardUserId;
-		console.log('11');
-		console.log(user);
-		request.get(url,
-			function (err, httpResponse, body) {
-				var userInfo = body && body.content ? body.content : undefined;
-				console.log('22');
-		console.log(user);
-				if (!user) {
-					var user = new User({
-						name: userInfo && userInfo.nick ? userInfo.nick : workCardUserId,
-						description: userInfo && userInfo.dept ? userInfo.dept : '',
-						extId: workCardUserId,
-						header: userInfo && userInfo.headPath ? ('https://work.alibaba-inc.com' + userInfo.headPath)
-							: path.join(os.hostname(), 'resource', 'default.jpg')
+	var url = 'https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
+			+ 'workCardAppToken=' + workCardAppToken
+			+ '&workCardNamespace=' + workCardNamespace
+			+ '&workCardUserId=' + workCardUserId
+			+ '&emplid=' + workCardUserId;
+
+	request.get(url, function (err, httpResponse, body) {
+		var userInfo = body && body.content ? body.content : undefined;
+		User.findOne({'extId': workCardUserId}, function (err, user) {
+			if (!user) {
+				var user = new User({
+					name: userInfo && userInfo.nick ? userInfo.nick : workCardUserId,
+					description: userInfo && userInfo.dept ? userInfo.dept : '',
+					extId: workCardUserId,
+					header: userInfo && userInfo.headPath ? ('https://work.alibaba-inc.com' + userInfo.headPath)
+						: path.join(os.hostname(), 'resource', 'default.jpg')
+				});
+				console.log('SAVE USER:');
+				console.log(user);
+				user.save(function (err, newUser) {
+					if (err) return res.json({
+						success: false
 					});
-					console.log('SAVE USER:');
-					console.log(user);
+
+					res.json({
+						success: true,
+						user: newUser,
+						notes: []
+					});
+					console.log('RETURN');
+					console.log({
+						success: true,
+						user: newUser,
+						notes: []
+					})
+				});
+			} else {
+				var userChanged = false;
+				if (userInfo && userInfo.nick && userInfo.nick != user.name) {
+					user.name = userInfo.nick;
+					userChanged = true;
+				}
+				if (userInfo && userInfo.dept && userInfo.dept != user.description) {
+					user.description = userInfo.dept;
+					userChanged = true;
+				}
+				if (userInfo && userInfo.headPath && user.header != ('https://work.alibaba-inc.com' + userInfo.headPath)) {
+					user.header = 'https://work.alibaba-inc.com' + userInfo.headPath;
+					userChanged = true;
+				}
+
+				if (userChanged) {
+					console.log('UPDATE USER:');
 					user.save(function (err, newUser) {
-						if (err) return res.json({
-							success: false
-						});
-
-						res.json({
-							success: true,
-							user: newUser,
-							notes: []
-						});
-						console.log('RETURN');
-						console.log({
-							success: true,
-							user: newUser,
-							notes: []
-						})
-					});
-				} else {
-					var userChanged = false;
-					if (userInfo && userInfo.nick && userInfo.nick != user.name) {
-						user.name = userInfo.nick;
-						userChanged = true;
-					}
-					if (userInfo && userInfo.dept && userInfo.dept != user.description) {
-						user.description = userInfo.dept;
-						userChanged = true;
-					}
-					if (userInfo && userInfo.headPath && user.header != ('https://work.alibaba-inc.com' + userInfo.headPath)) {
-						user.header = 'https://work.alibaba-inc.com' + userInfo.headPath;
-						userChanged = true;
-					}
-
-					if (userChanged) {
-						console.log('UPDATE USER:');
-						user.save(function (err, newUser) {
-							findLatestMessages(newUser, function (notes) {
-								res.json({
-									success: true,
-									user: newUser,
-									notes: notes
-								});
-								console.log('RETURN');
-								console.log({
-									success: true,
-									user: newUser,
-									notes: notes
-								});
-							});
-						});
-					} else {
-						console.log('UNCHANGE USER:');
-						findLatestMessages(user, function (notes) {
+						findLatestMessages(newUser, function (notes) {
 							res.json({
 								success: true,
-								user: user,
+								user: newUser,
 								notes: notes
 							});
 							console.log('RETURN');
 							console.log({
 								success: true,
-								user: user,
+								user: newUser,
 								notes: notes
 							});
 						});
-					}
+					});
+				} else {
+					console.log('UNCHANGE USER:');
+					findLatestMessages(user, function (notes) {
+						res.json({
+							success: true,
+							user: user,
+							notes: notes
+						});
+						console.log('RETURN');
+						console.log({
+							success: true,
+							user: user,
+							notes: notes
+						});
+					});
 				}
-	    	}
-	    );
+			}
+		});
 	});
 });
 
