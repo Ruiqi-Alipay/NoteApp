@@ -13,6 +13,28 @@ var findGroupName = function (groups, targetId) {
 		if (groups[index]._id == targetId) return groups[index].name;
 	}
 };
+var findLatestMessages = function (user, callback) {
+	Group.find({$or: [{'members': user._id}, {'creater': user._id}]}).exec(function (err, groups) {
+		if (groups) {
+			var groupIds = [];
+			groups.forEach(function (item) {
+				groupIds.push(item._id);
+			});
+
+			Message.find({groupId: {$in: groupIds}}).sort('-timestamp').limit(4).exec(function (err, messages) {
+				utils.createClientMessageBatch(messages, user._id, function (clientMessages) {
+					clientMessages.forEach(function (msg) {
+						msg.groupName = findGroupName(groups, msg.groupId);
+					});
+
+					callback(clientMessages);
+				});
+			});
+		} else {
+			callback([]);
+		}
+	});
+};
 
 router.get('/getlatest.json&dev=true', function (req, res, next) {
 	var workCardUserId = req.query.workCardUserId;
@@ -24,71 +46,72 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 		success: false
 	});
 
-			var url = 'https://daily.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
-					+ 'workCardAppToken=' + workCardAppToken
-					+ '&workCardNamespace=' + workCardNamespace
-					+ '&workCardUserId=' + workCardUserId
-					+ '&emplid=' + workCardUserId;
-			console.log(url);
-			request.get(url,
-				function (err, httpResponse, body) {
-					console.log('---------------------------------------')
-					console.log(err);
-					console.log('---------------------------------------')
-		      		console.log(httpResponse);
-		      		res.json(body);
-		    	}
-		    );
-		    return;
 	User.findOne({'extId': workCardUserId}, function (err, user) {
-		if (!user) {
-			// var user = new User({
-			// 	name: '测试用户名',
-			// 	description: '测试职位描述',
-			// 	extId: workCardUserId,
-			// 	header: path.join(os.hostname(), 'resource', 'default.jpg')
-			// });
-			// user.save(function (err, newUser) {
-			// 	if (err) return res.json({
-			// 		success: false
-			// 	});
+		var url = 'https://work.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
+				+ 'workCardAppToken=' + workCardAppToken
+				+ '&workCardNamespace=' + workCardNamespace
+				+ '&workCardUserId=' + workCardUserId
+				+ '&emplid=' + workCardUserId;
+		request.get(url,
+			function (err, httpResponse, body) {
+				var userInfo = body && body.content ? body.content : undefined;
 
-			// 	res.json({
-			// 		success: true,
-			// 		user: newUser,
-			// 		notes: []
-			// 	});
-			// });
-		} else {
-			Group.find({$or: [{'members': user._id}, {'creater': user._id}]}).exec(function (err, groups) {
-				if (groups) {
-					var groupIds = [];
-					groups.forEach(function (item) {
-						groupIds.push(item._id);
+				if (!user) {
+					var user = new User({
+						name: userInfo && userInfo.nick ? userInfo.nick : workCardUserId,
+						description: userInfo && userInfo.dept ? userInfo.dept : '',
+						extId: workCardUserId,
+						header: userInfo && userInfo.headPath ? ('https://work.alibaba-inc.com' + userInfo.headPath)
+							: path.join(os.hostname(), 'resource', 'default.jpg')
 					});
+					user.save(function (err, newUser) {
+						if (err) return res.json({
+							success: false
+						});
 
-					Message.find({groupId: {$in: groupIds}}).sort('-timestamp').limit(4).exec(function (err, messages) {
-						utils.createClientMessageBatch(messages, user._id, function (clientMessages) {
-							clientMessages.forEach(function (msg) {
-								msg.groupName = findGroupName(groups, msg.groupId);
-							});
-
-							res.json({
-								success: true,
-								user: user,
-								notes: clientMessages
-							});
+						res.json({
+							success: true,
+							user: newUser,
+							notes: []
 						});
 					});
 				} else {
-					res.json({
-						success: true,
-						user: user,
-						notes: []
-					});
+					var userChanged = false;
+					if (userInfo && userInfo.nick && userInfo.nick != user.name) {
+						user.name = userInfo.nick;
+						userChanged = true;
+					}
+					if (userInfo && userInfo.dept && userInfo.dept != user.description) {
+						user.description = userInfo.dept;
+						userChanged = true;
+					}
+					if (userInfo && userInfo.headPath && user.header != ('https://work.alibaba-inc.com' + userInfo.headPath)) {
+						user.header = 'https://work.alibaba-inc.com' + userInfo.headPath;
+						userChanged = true;
+					}
+
+					if (userChanged) {
+						user.save(function (err, newUser) {
+							findLatestMessages(newUser, function (notes) {
+								res.json({
+									success: true,
+									user: newUser,
+									notes: notes
+								});
+							});
+						});
+					} else {
+						findLatestMessages(user, function (notes) {
+							res.json({
+								success: true,
+								user: user,
+								notes: notes
+							});
+						});
+					}
 				}
-			});
-		}
+	    	}
+	    );
 	});
 });
 
