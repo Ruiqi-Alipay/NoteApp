@@ -32,7 +32,10 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 			console.log(url);
 			request.get(url,
 				function (err, httpResponse, body) {
-		      		console.log(body);
+					console.log('---------------------------------------')
+					conso.log(err);
+					console.log('---------------------------------------')
+		      		console.log(httpResponse);
 		      		res.json(body);
 		    	}
 		    );
