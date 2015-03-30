@@ -8,7 +8,7 @@
 	<template layout horizontal end>
 		<link rel="stylesheet" href="yo-senderbtn.css">
 		<paper-spinner active?="{{sending}}"></paper-spinner>
-		<paper-fab icon="{{draft.senderName ? 'create' : 'send'}}" class="editFab green" title="发送"
+		<paper-fab icon="{{draft.senderName ? 'create' : 'send'}}" title="发送"
 			on-click="{{sendMessage}}" hidden?="{{sending}}"></paper-fab>
 		<core-signals on-core-signal-send-finished="{{onSendFinished}}"
 			on-core-signal-draft-finished="{{onDraftFinished}}"

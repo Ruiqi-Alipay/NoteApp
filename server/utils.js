@@ -53,6 +53,7 @@ var findUser = function (users, userId) {
 };
 
 module.exports = {
+	createNeiwai
 	cutMessages: function (messages) {
 		if (messages) {
 			messages.forEach(function (message) {

@@ -2,6 +2,12 @@
 	width: 700px;
 }
 
+.divilier-line {
+	background: #eee;
+	height: 1px;
+	margin: 0px 6px;
+}
+
 .group-container {
 	overflow-y: auto;
 	padding: 20px;
@@ -31,7 +37,6 @@
 }
 
 .card-content {
-	background: url(../../images/bg_pattern_r1.png);
 	position: relative;
 	cursor: pointer;
 	padding: 8px;

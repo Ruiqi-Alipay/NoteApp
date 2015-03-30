@@ -16,8 +16,9 @@
 		<link rel="stylesheet" href="yo-message-item.css">
 
 	      <div layout horizontal center class="title">
+	      	<div class="date">标签：</div>
 	        <template repeat="{{tag in message.tags}}">
-	          <paper-button class="tag-button">{{tag}}</paper-button>
+	          <div class="tag-button">{{tag}}</div>
 	        </template>
 	        <div flex></div>
 	        <div class="date">{{message.date}}</div>
@@ -39,6 +40,7 @@
 				</paper-dropdown>
 			</paper-menu-button>
 	      </div>
+	      <div class="divilier-line"></div>
 	      <div id="rawContent" layout vertical flex class="{{message.senderName ? 'content' : 'content-pointer'}}"
 	      	on-click="{{messageClicked}}">
 	      	

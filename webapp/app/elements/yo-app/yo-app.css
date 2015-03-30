@@ -1,12 +1,12 @@
 [drawer] {
-  background-color: #ff9c27;
+  background-color: #eee;
     -webkit-box-shadow: 10 0px 6px -6px #777;
        -moz-box-shadow: 10 0px 6px -6px #777;
             box-shadow: 10 0px 6px -6px #777;
 }
 
 .loadingBacktround {
-	background-color: #ff9c27;
+	background-color: #eee;
 }
 
 .spinner {

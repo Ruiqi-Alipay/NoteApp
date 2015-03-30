@@ -1,5 +1,5 @@
 .drawer-title {
-    color: white;
+    color: black;
     position: relative;
     height: 192px;
 }
@@ -26,7 +26,7 @@
 .group-tabs {
     font-size: 16px;
     margin-bottom: 5px;
-    color: white;
+    color: black;
 }
 
 .tag-card {
@@ -54,7 +54,7 @@
 
 .member-menu {
     padding: 6px 12px 6px 16px;
-    color: white;
+    color: black;
 }
 
 .member-header {
@@ -79,12 +79,20 @@
     color: gray;
 }
 
+paper-checkbox::shadow #ink[checked] {
+  color: #ff9c27;
+}
+paper-checkbox::shadow #checkbox.checked {
+  background-color: #ff9c27;
+  border-color: #ff9c27;
+}
+
 paper-tabs::shadow #selectionBar {
-  background-color: white;
+  background-color: #ff9c27;
 }
 
 paper-tabs paper-tab::shadow #ink {
-  color: white;
+  color: #ff9c27;
 }
 
 paper-fab.blue {

@@ -4,15 +4,19 @@
 	padding: 10px 0px 10px 10px;
 }
 
+.divilier-line {
+	background: #eee;
+	height: 1px;
+	margin: 0px 6px;
+}
+
 .content {
-	background: url(../../images/bg_pattern_r1.png);
 	padding: 16px;
 	min-height: 80px;
 	overflow-x: auto;
 }
 
 .content-pointer {
-	background: url(../../images/bg_pattern_r1.png);
 	padding: 16px;
 	min-height: 80px;
 	overflow-x: auto;
@@ -20,8 +24,11 @@
 }
 
 .tag-button {
-	color: #4285f4;
+	color: white;
+	background: #8B8878;
 	font-size: 0.8em;
+	padding: 3px 8px;
+	border-radius: 4px;
 }
 
 .more-button {
@@ -66,6 +73,10 @@
     background-size: contain;
     border: solid 1px silver;
     margin-right: 5px;
+}
+
+.custom {
+	margin-left: 2px;
 }
 
 .custom /deep/ .unfocused-underline {

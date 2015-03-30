@@ -61,7 +61,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 					description: userInfo && userInfo.dept ? userInfo.dept : '',
 					extId: workCardUserId,
 					header: userInfo && userInfo.headPath ? ('https://work.alibaba-inc.com' + userInfo.headPath)
-						: path.join(os.hostname(), 'resource', 'default.jpg')
+						: 'http://voice.alipay.net:9000/resource/default.jpg'
 				});
 				console.log('SAVE USER:');
 				console.log(user);
