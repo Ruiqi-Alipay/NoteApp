@@ -24,7 +24,7 @@ router.get('/getlatest.json&dev=true', function (req, res, next) {
 		success: false
 	});
 
-			var url = 'https://daily.alibaba-inc.com/work/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
+			var url = 'https://daily.alibaba-inc.com/xservice/open/api/v1/user/getPeasonBaseInfo.json?'
 					+ 'workCardAppToken=' + workCardAppToken
 					+ '&workCardNamespace=' + workCardNamespace
 					+ '&workCardUserId=' + workCardUserId
