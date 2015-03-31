@@ -32,6 +32,7 @@
     <div layout vertical class="editor-sidebar" style="position: relative; overflow-y: auto;">
       <yo-tagbar id="yo-tagbar" vertical layout fit></yo-tagbar>
     </div>
+    <div class="diliver-vertical"></div>
     <div layout vertical flex style="position: relative;">
       <div class="scrollEditor" vertical layout fit>
         <div id="toolbar" class="toolbar">
@@ -152,6 +153,7 @@
             <span title="Image" class="ql-format-button ql-image"></span>
           </span>
         </div>
+        <div class="diliver-horizontal"></div>
         <div id="editor" class="editor">
         </div>      
       </div>
@@ -169,6 +171,11 @@
         'toolbar': { container: '#toolbar' },
         'image-tooltip': true,
         'link-tooltip': true
+      },
+      styles: {
+        '.ql-editor': {
+          'font-size': "16px"
+        }
       },
       theme: 'snow'
     });

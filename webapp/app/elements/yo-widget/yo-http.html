@@ -17,7 +17,7 @@
 
 			<div layout horizontal flex end-justified center>
 				<paper-spinner active?="{{busy}}"></paper-spinner>
-				<paper-button on-click="{{cancelDialog}}" disabled?="{{busy}}">取消</paper-button>
+				<paper-button on-click="{{onCancel}}" disabled?="{{busy}}">取消</paper-button>
 				<paper-button autofocus disabled?="{{(editor && !groupName) || busy}}" on-click="{{onConfirm}}">确定</paper-button>
 			</div>
 	    </paper-action-dialog>
@@ -88,9 +88,6 @@
 		};
 
 		Polymer({
-			cancelDialog: function (event, detail, sender) {
-				this.$.dialog.close();
-			},
 			loadUser: function (successCallback) {
 				var search = window.location.search;
 				if (!search || search.indexOf('user=') < 0) {
