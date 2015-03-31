@@ -325,8 +325,8 @@
 					this.busy = true;
 			    	if (message.senderName) {
 						makeRequest(this, function (scope, message) {
-							this.busy = false;
-							this.$.dialog.close();
+							scope.busy = false;
+							scope.$.dialog.close();
 							var deletedMessage = message ? message[0] : undefined;
 							callback(deletedMessage);
 							scope.fire('core-signal', {name: 'user-changed'});
@@ -335,8 +335,8 @@
 						}, 'application/json');
 			    	} else {
 						makeRequest(this, function (scope, message) {
-							this.busy = false;
-							this.$.dialog.close();
+							scope.busy = false;
+							scope.$.dialog.close();
 							callback(message ? message[0] : undefined);
 							user.draftCount--;
 						}, './api/user/' + user.id + '/draft/' + message.id, 'DELETE');
