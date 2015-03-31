@@ -30,9 +30,22 @@ app.use(function(req, res, next) {
 });
 
 if (require.main === module) {
-    app.listen(9000, function(){
-        console.info('Yo-Note server listening on port ' + 9000);
-    });
+	// if (cluster.isMaster) {
+	//   // Fork workers.
+	//   for (var i = 0; i < numCPUs; i++) {
+	//     cluster.fork();
+	//   }
+
+	//   cluster.on('exit', function(worker, code, signal) {
+	//     console.log('worker ' + worker.process.pid + ' died');
+	//   });
+	// } else {
+	    // Workers can share any TCP connection
+	    // In this case its a HTTP server
+	    app.listen(9000, function(){
+	        console.info('Yo-Note server listening on port ' + 9000);
+	    });
+	// }
 } else {
     module.exports = app;
 }
