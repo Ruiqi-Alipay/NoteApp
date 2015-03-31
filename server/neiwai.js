@@ -36,7 +36,7 @@ var findLatestMessages = function (user, callback) {
 	});
 };
 
-router.get('/getlatest.json&dev=true', function (req, res, next) {
+router.get('/getlatest.json', function (req, res, next) {
 	var workCardUserId = req.query.workCardUserId;
 	var workCardAppToken = req.query.workCardAppToken;
 	var workCardNamespace = req.query.workCardNamespace;
