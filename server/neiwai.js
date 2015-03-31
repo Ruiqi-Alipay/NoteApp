@@ -42,6 +42,11 @@ router.get('/getlatest.json', function (req, res, next) {
 	var workCardNamespace = req.query.workCardNamespace;
 	var workCardSignKey = req.query.workCardSignKey;
 
+	console.log('workCardUserId: ' + workCardUserId);
+	console.log('workCardAppToken: ' + workCardAppToken);
+	console.log('workCardNamespace: ' + workCardNamespace);
+	console.log('workCardSignKey: ' + workCardSignKey);
+
 	if (!workCardUserId || !workCardAppToken || !workCardNamespace) return res.json({
 		success: false
 	});
